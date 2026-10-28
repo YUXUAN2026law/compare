@@ -5,9 +5,16 @@ from openai import OpenAI
 
 load_dotenv()
 
+try:
+    api_key = st.secrets["INTERN_API_KEY"]
+    base_url = st.secrets["INTERN_API_BASE"]
+except Exception:
+    api_key = os.getenv('INTERN_API_KEY')
+    base_url = os.getenv('INTERN_API_BASE')
+
 client = OpenAI(
-    api_key=st.secrets["INTERN_API_KEY"],
-    base_url=st.secrets["INTERN_API_BASE"]
+    api_key=api_key,
+    base_url=base_url
 )
 
 st.set_page_config(
@@ -40,6 +47,7 @@ user_prompt = st.text_area(
     placeholder="请详细描述您的法律问题和需求..."
 )
 
+st.subheader("🤖 选择 AI 模型")
 model_option = st.selectbox(
     "选择生成模型",
     [
@@ -84,12 +92,10 @@ if st.button("🚀 开始分析", type="primary"):
             
             st.info("💡 提示：您可以将生成的内容保存为 Word 或 PDF 文档。如需进一步优化文书格式，请联系我们的技术团队。")
             
-    except Exception as e:
-        st.error(f"❌ 发生错误：{str(e)}")
-        st.exception(e)  # 临时加上这一行，用来查看详细报错
-        st.info("请检查：1. 网络连接；2. API Key 是否正确；3. 端砚平台是否正常运行")
+        except Exception as e:
+            st.error(f"❌ 发生错误：{str(e)}")
+            st.exception(e)
+            st.info("请检查：1. 网络连接；2. API Key 是否正确；3. 端砚平台是否正常运行")
 
 st.markdown("---")
 st.caption("© 2025 银发法盾开发团队 | 中国 - 东盟'AI+ 法律'应用创新大赛参赛作品")
-
-
