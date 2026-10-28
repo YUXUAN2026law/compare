@@ -1,20 +1,21 @@
 import streamlit as st
-from dotenv import load_dotenv
-import os
 from openai import OpenAI
+import re
+import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
+# 读取密钥，并使用正则表达式强制清除所有空格和换行符
 try:
-    # 云端读取 Secrets，加上 .strip() 强制剔除首尾的换行符和空格
-    api_key = st.secrets["INTERN_API_KEY"].strip()
-    base_url = st.secrets["INTERN_API_BASE"].strip()
+    raw_api_key = st.secrets["INTERN_API_KEY"]
+    raw_base_url = st.secrets["INTERN_API_BASE"]
 except Exception:
-    # 本地读取 .env 的备选方案
-    api_key = os.getenv('INTERN_API_KEY')
-    base_url = os.getenv('INTERN_API_BASE')
-    if api_key: api_key = api_key.strip()
-    if base_url: base_url = base_url.strip()
+    raw_api_key = os.getenv('INTERN_API_KEY', '')
+    raw_base_url = os.getenv('INTERN_API_BASE', '')
+
+api_key = re.sub(r'\s+', '', raw_api_key)
+base_url = raw_base_url.strip()
 
 client = OpenAI(
     api_key=api_key,
