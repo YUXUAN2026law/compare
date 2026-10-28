@@ -6,11 +6,15 @@ from openai import OpenAI
 load_dotenv()
 
 try:
-    api_key = st.secrets["INTERN_API_KEY"]
-    base_url = st.secrets["INTERN_API_BASE"]
+    # 云端读取 Secrets，加上 .strip() 强制剔除首尾的换行符和空格
+    api_key = st.secrets["INTERN_API_KEY"].strip()
+    base_url = st.secrets["INTERN_API_BASE"].strip()
 except Exception:
+    # 本地读取 .env 的备选方案
     api_key = os.getenv('INTERN_API_KEY')
     base_url = os.getenv('INTERN_API_BASE')
+    if api_key: api_key = api_key.strip()
+    if base_url: base_url = base_url.strip()
 
 client = OpenAI(
     api_key=api_key,
