@@ -6,9 +6,9 @@ from openai import OpenAI
 load_dotenv()
 
 client = OpenAI(
-    api_key=os.getenv('INTERN_API_KEY'),
-    base_url=os.getenv('INTERN_API_BASE')
-)
+    api_key=st.secrets["INTERN_API_KEY"],
+    base_url=st.secrets["INTERN_API_BASE"]
+）
 
 st.set_page_config(
     page_title="银发法盾 - AI 法律文书助手",
