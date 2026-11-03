@@ -22,7 +22,7 @@ base_url = raw_base_url.strip()
 
 client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
 
-st.set_page_config(page_title="银发法盾 - AI 法律助手", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="银发法盾 - AI 法律助手", page_icon="⚖️\n", layout="wide")
 
 st.title("⚖️ 银发法盾")
 st.markdown("**专为中老年人打造的法律助手**，支持图片案情识别、类案对比与文书导出。")
@@ -40,7 +40,7 @@ with st.sidebar:
     # 法律名词解释字典
     with st.expander("📖 老年人常见法律名词解释"):
         st.markdown("""
-        * **诉讼**：去法院“告状”，让法官来评理。
+        * **诉讼**：去法院"告状"，让法官来评理。
         * **赡养**：子女在物质和生活上照顾父母的义务。
         * **调解**：找居委会或中间人，坐下来好好商量。
         * **原告/被告**：先告状的叫原告，被告的叫被告。
@@ -68,9 +68,9 @@ with st.sidebar:
     
     st.markdown("---")
     # 功能开关
-    st.markdown("**🛠️ 功能开关：**")
     show_template_guide = st.checkbox("显示案情引导模板", value=True)
     show_qa_guide = st.checkbox("显示Q&A话术总结", value=True)
+    show_community_guide = st.checkbox("显示社区协助指南", value=True)
 
 # 侧边栏Q&A话术总结
 with st.sidebar:
@@ -94,33 +94,6 @@ with st.sidebar:
             | **确认人** | "这件事里，对方和您是什么关系？" |
             | **确认证据** | "您有没有留下借条、合同、聊天记录、录音或者视频？" |
             """)
-            
-            st.markdown("**✅ 减少误判**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **复述确认** | "我重复一下您说的重点，您看对不对：……" |
-            | **多选确认** | "您的情况更接近下面哪一种：A.…… B.…… C.……" |
-            | **排除干扰** | "您刚才说的这个情况，和您要解决的问题是一回事吗？" |
-            """)
-            
-            st.markdown("**🗣️ 应对絮叨**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **温和拉回** | "您说的我都记下了，咱们回到……这个问题上。" |
-            | **分块确认** | "您先停一下，我帮您总结一下，您看是不是这3点：……" |
-            | **聚焦目标** | "您今天最想解决的问题是什么？" |
-            """)
-            
-            st.markdown("**📋 结尾与建议**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **总结案情** | "根据您说的，我帮您总结成几句话……" |
-            | **风险提示** | "AI只能给您参考，具体怎么处理，建议您去……咨询专业律师。" |
-            | **下一步** | "下一步您可以这样做：1.…… 2.…… 3.……" |
-            """)
 
 # 分栏：左侧输入，右侧输出
 col1, col2 = st.columns([1, 1.2])
@@ -135,10 +108,6 @@ with col1:
     *（如果长辈习惯说方言，可在手机输入法设置中开启"方言识别"，如粤语、四川话等，AI 一样能听懂哦！）*
     """)
     
-    # 初始化 session_state
-    if "case_input" not in st.session_state:
-        st.session_state.case_input = ""
-
     # 案件类型引导模板
     if show_template_guide:
         st.markdown("**📋 不确定怎么描述？试试下面这些模板（点击即可自动填入）：**")
@@ -147,7 +116,6 @@ with col1:
         # 定义更新函数
         def update_input(text):
             st.session_state.case_input = text
-
         with template_col1:
             if st.button("💰 赡养纠纷", use_container_width=True, key="tmpl_sdyj"):
                 update_input("我65岁了，有三个子女。大儿子说没钱，二女儿说不想管，小儿子说别的哥哥姐姐先出。我一个月退休金1500元，现在看病吃药要花800元。我该怎么办？")
@@ -164,13 +132,11 @@ with col1:
             if st.button("⚠️ 其他纠纷", use_container_width=True, key="tmpl_qtjq"):
                 update_input("（请描述您遇到的法律纠纷，我会帮您分析该怎么处理）")
     
-    # 使用 session_state.case_input 双向绑定
     user_prompt = st.text_area("文字描述案情：", height=150, placeholder="例如：我 65 岁了，有三个子女，他们都不愿意支付赡养费...", key="case_input")
     
     uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
         st.image(uploaded_file, caption="已上传案情图", width=300)
-        
     # 功能开关
     st.markdown("**🛠️ 高级功能配置：**")
     enable_compare = st.checkbox("开启【类案对比与裁判规则】", value=True)
@@ -178,6 +144,7 @@ with col1:
     
     analyze_btn = st.button("🚀 生成法律意见", type="primary", use_container_width=True)
 
+# 右侧：法律意见书 + 新增功能
 with col2:
     st.subheader("📋 法律意见书")
     
@@ -210,7 +177,6 @@ with col2:
                 
                 if enable_compare:
                     system_content += "\n此外，请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。"
-                
                 messages = [{"role": "system", "content": system_content}]
                 
                 # 处理多模态图片输入
@@ -228,7 +194,6 @@ with col2:
                     messages.append({"role": "user", "content": content_list})
                 else:
                     messages.append({"role": "user", "content": user_prompt})
-                
                 # 流式输出
                 response = client.chat.completions.create(
                     model=model_option, 
@@ -236,22 +201,62 @@ with col2:
                     temperature=0.5,
                     stream=True
                 )
-                
                 result_placeholder = st.empty()
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
-                
-                # 修复 IndexError 和 HTML 污染代码
+                # ================= 修复 IndexError 核心代码 =================
                 for chunk in response:
+                    # 增加安全判断：确保 chunk 包含 choices 且不是空列表
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                        if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
-                            full_result += chunk.choices[0].delta.content
+                        # 确保 delta 存在且 content 不是 None
+                        if chunk.choices<i class="markdown-ref custom">0</i>.delta and chunk.choices<i class="markdown-ref custom">0</i>.delta.content is not None:
+                            full_result += chunk.choices<i class="markdown-ref custom">0</i>.delta.content
                             result_placeholder.markdown(full_result + "▌")
-                
+                # ============================================================
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
                 
                 result = full_result
+                
+                # ============================================
+                # 新增功能1：语音朗读
+                # ============================================
+                st.markdown("""
+                <audio id="reader-audio" controls style="width: 100%; margin: 10px 0;">
+                    您的浏览器不支持音频播放
+                </audio>
+                <button onclick="readAloud()" style="background-color: #2196F3; color: white; padding: 12px 24px; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; width: 100%;">
+                    🔊 朗读内容
+                </button>
+                <button onclick="stopReading()" style="background-color: #F44336; color: white; padding: 12px 24px; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; width: 100%; margin-top: 10px;">
+                    ⏹️ 停止朗读
+                </button>
+                """, unsafe_allow_html=True)
+                
+                # JavaScript 实现语音合成
+                st.markdown("""
+                <script>
+                function readAloud() {
+                    if ('speechSynthesis' in window) {
+                        const text = document.querySelector('.stMarkdown').textContent;
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        utterance.lang = 'zh-CN';
+                        utterance.rate = 0.9;  // 稍慢语速
+                        window.speechSynthesis.speak(utterance);
+                        alert('正在为您朗读...');
+                    } else {
+                        alert('您的浏览器不支持语音合成功能');
+                    }
+                }
+                
+                function stopReading() {
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                        alert('已停止朗读');
+                    }
+                }
+                </script>
+                """, unsafe_allow_html=True)
                 
                 # --- 文档导出功能 ---
                 st.markdown("### 📥 导出法律意见书")
@@ -270,8 +275,7 @@ with col2:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
-                
-                # 导出 PDF
+                # 导出 PDF (防乱码处理)
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", size=12)
@@ -290,3 +294,61 @@ with col2:
             except Exception as e:
                 st.error(f"❌ 发生错误：{str(e)}")
                 st.exception(e)
+
+# ============================================
+# 新增功能2：社区居委会协助指南
+# ============================================
+if show_community_guide:
+    st.markdown("---")
+    st.subheader("🏘️ 社区居委会协助指南")
+    st.info("""
+    当法律规定难以单独解决时，您可以寻求社区居委会的帮助。居委会是居民自治组织，可以调解邻里纠纷、家庭矛盾等。
+    """)
+    
+    citizen_col1, citizen_col2 = st.columns(2)
+    
+    with citizen_col1:
+        st.markdown("**📝 居委会通用申请文书模板**")
+        st.markdown("""
+        **申请人**：[您的姓名]  
+        **联系电话**：[您的电话]  
+        **申请事项**：请求社区居委会协助调解  
+        
+        **事由说明**：  
+        [在此处描述您的具体情况，如：赡养纠纷、邻里矛盾、物业问题等]  
+        
+        **调解请求**：  
+        恳请贵居委会组织相关人员进行调解，协助双方达成共识。  
+        
+        **附件**：[相关证据材料，如照片、通知等]  
+        """)
+        st.download_button(
+            label="下载 申请文书模板",
+            data="申请人：[您的姓名]\n联系电话：[您的电话]\n申请事项：请求社区居委会协助调解\n\n事由说明：\n[在此处描述您的具体情况]\n\n调解请求：\n恳请贵居委会组织相关人员进行调解，协助双方达成共识。\n\n附件：[相关证据材料]",
+            file_name="居委会协助申请书.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
+        )
+    
+    with citizen_col2:
+        st.markdown("**📞 社区走访建议**")
+        st.markdown("""
+        **去哪里找居委会**：
+        - 您所在的小区居委会办公室
+        - 街道办事处（乡镇政府下辖）
+        - 社区服务中心
+        
+        **带什么材料**：
+        1. 身份证复印件
+        2. 问题相关证据（照片、合同、聊天记录）
+        3. 写好的情况说明（可用上方模板）
+        
+        **调解后的好处**：
+        - 免费、高效的纠纷解决方式
+        - 不伤和气，保留邻里关系
+        - 若调解不成，仍可向法院起诉
+        
+        **注意事项**：
+        - 居委会调解基于双方自愿原则
+        - 调解协议具有法律约束力
+        """)
