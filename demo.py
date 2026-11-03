@@ -7,7 +7,6 @@ import io
 from docx import Document
 from fpdf import FPDF
 from dotenv import load_dotenv
-import json
 
 load_dotenv()
 
@@ -41,7 +40,7 @@ with st.sidebar:
     # 法律名词解释字典
     with st.expander("📖 老年人常见法律名词解释"):
         st.markdown("""
-        * **诉讼**：去法院"告状"，让法官来评理。
+        * **诉讼**：去法院“告状”，让法官来评理。
         * **赡养**：子女在物质和生活上照顾父母的义务。
         * **调解**：找居委会或中间人，坐下来好好商量。
         * **原告/被告**：先告状的叫原告，被告的叫被告。
@@ -68,10 +67,10 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-功能开关
+    # 功能开关
     st.markdown("**🛠️ 功能开关：**")
-    show_template_guide = st.sidebar.checkbox("显示案情引导模板", value=True)
-    show_qa_guide = st.sidebar.checkbox("显示Q&A话术总结", value=True)
+    show_template_guide = st.checkbox("显示案情引导模板", value=True)
+    show_qa_guide = st.checkbox("显示Q&A话术总结", value=True)
 
 # 侧边栏Q&A话术总结
 with st.sidebar:
@@ -122,12 +121,6 @@ with st.sidebar:
             | **风险提示** | "AI只能给您参考，具体怎么处理，建议您去……咨询专业律师。" |
             | **下一步** | "下一步您可以这样做：1.…… 2.…… 3.……" |
             """)
-=======
-    # 新增：案情引导模板开关
-    st.markdown("**🛠️ 功能开关：**")
-    show_template_guide = st.sidebar.checkbox("显示案情引导模板", value=True)
-    show_qa_guide = st.sidebar.checkbox("显示Q&A话术总结", value=True)
->>>>>>> c032cbd5c6abe99c65defbc7e6094d26d2f13c08
 
 # 分栏：左侧输入，右侧输出
 col1, col2 = st.columns([1, 1.2])
@@ -142,92 +135,48 @@ with col1:
     *（如果长辈习惯说方言，可在手机输入法设置中开启"方言识别"，如粤语、四川话等，AI 一样能听懂哦！）*
     """)
     
+    # 初始化 session_state
+    if "case_input" not in st.session_state:
+        st.session_state.case_input = ""
+
     # 案件类型引导模板
     if show_template_guide:
         st.markdown("**📋 不确定怎么描述？试试下面这些模板（点击即可自动填入）：**")
         template_col1, template_col2 = st.columns(2)
         
+        # 定义更新函数
+        def update_input(text):
+            st.session_state.case_input = text
+
         with template_col1:
             if st.button("💰 赡养纠纷", use_container_width=True, key="tmpl_sdyj"):
-                st.session_state.user_prompt = "我65岁了，有三个子女。大儿子说没钱，二女儿说不想管，小儿子说别的哥哥姐姐先出。我一个月退休金1500元，现在看病吃药要花800元。我该怎么办？"
+                update_input("我65岁了，有三个子女。大儿子说没钱，二女儿说不想管，小儿子说别的哥哥姐姐先出。我一个月退休金1500元，现在看病吃药要花800元。我该怎么办？")
             if st.button("💳 消费维权", use_container_width=True, key="tmpl_xfwq"):
-                st.session_state.user_prompt = "我在药店买了2万元的保健品，推销员说能治好我的高血压。现在吃了没用，想退钱，怎么办？"
+                update_input("我在药店买了2万元的保健品，推销员说能治好我的高血压。现在吃了没用，想退钱，怎么办？")
             if st.button("🏠 遗产继承", use_container_width=True, key="tmpl_yjcc"):
-                st.session_state.user_prompt = "我老伴去年去世了，留下一套房子和10万元存款。三个子女对怎么分吵个不停，我们老两口生前没立遗嘱，该怎么办？"
+                update_input("我老伴去年去世了，留下一套房子和10万元存款。三个子女对怎么分吵个不停，我们老两口生前没立遗嘱，该怎么办？")
             if st.button("💵 民间借贷", use_container_width=True, key="tmpl_mjwd"):
-                st.session_state.user_prompt = "3年前我借给老李5万块钱，现在要他还钱。他借的时候写了借条，现在说没钱还，怎么办？"
+                update_input("3年前我借给老李5万块钱，现在要他还钱。他借的时候写了借条，现在说没钱还，怎么办？")
         
         with template_col2:
             if st.button("👨‍👩‍👧 婚姻家庭", use_container_width=True, key="tmpl_hjyt"):
-                st.session_state.user_prompt = "我老公要离婚，想把我赶出家。房子是他婚前买的，但婚后我们一起还贷。我怎么办？"
+                update_input("我老公要离婚，想把我赶出家。房子是他婚前买的，但婚后我们一起还贷。我怎么办？")
             if st.button("⚠️ 其他纠纷", use_container_width=True, key="tmpl_qtjq"):
-                st.session_state.user_prompt = "（请描述您遇到的法律纠纷，我会帮您分析该怎么处理）"
+                update_input("（请描述您遇到的法律纠纷，我会帮您分析该怎么处理）")
     
+    # 使用 session_state.case_input 双向绑定
     user_prompt = st.text_area("文字描述案情：", height=150, placeholder="例如：我 65 岁了，有三个子女，他们都不愿意支付赡养费...", key="case_input")
     
     uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
         st.image(uploaded_file, caption="已上传案情图", width=300)
-
         
-=======
->>>>>>> c032cbd5c6abe99c65defbc7e6094d26d2f13c08
     # 功能开关
     st.markdown("**🛠️ 高级功能配置：**")
     enable_compare = st.checkbox("开启【类案对比与裁判规则】", value=True)
     enable_ocr = st.checkbox("开启【图片OCR自动提取】", value=True)
     
     analyze_btn = st.button("🚀 生成法律意见", type="primary", use_container_width=True)
-
-# 侧边栏Q&A话术总结
-with st.sidebar:
-    if show_qa_guide:
-        with st.expander("💬 Q&A 话术总结（帮您更好说明案情）"):
-            st.markdown("**📝 描述案情**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **开场引导** | "老人家，您先别慌，把事情的经过从头到尾说一遍，慢慢说。" |
-            | **按时间说** | "您按时间顺序讲：最早是什么时候？中间发生了什么？现在是什么情况？" |
-            | **抓重点** | "您用最简单的话说：谁、在什么时间、做了什么、对您造成了什么影响？" |
-            """)
-            
-            st.markdown("**🔍 追问细节**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **确认时间** | "您说的是XXXX年XX月，对吗？" |
-            | **确认金额** | "这笔钱大概是多少？您还记得具体数字吗？" |
-            | **确认人** | "这件事里，对方和您是什么关系？" |
-            | **确认证据** | "您有没有留下借条、合同、聊天记录、录音或者视频？" |
-            """)
-            
-            st.markdown("**✅ 减少误判**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **复述确认** | "我重复一下您说的重点，您看对不对：……" |
-            | **多选确认** | "您的情况更接近下面哪一种：A.…… B.…… C.……" |
-            | **排除干扰** | "您刚才说的这个情况，和您要解决的问题是一回事吗？" |
-            """)
-            
-            st.markdown("**🗣️ 应对絮叨**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **温和拉回** | "您说的我都记下了，咱们回到……这个问题上。" |
-            | **分块确认** | "您先停一下，我帮您总结一下，您看是不是这3点：……" |
-            | **聚焦目标** | "您今天最想解决的问题是什么？" |
-            """)
-            
-            st.markdown("**📋 结尾与建议**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **总结案情** | "根据您说的，我帮您总结成几句话……" |
-            | **风险提示** | "AI只能给您参考，具体怎么处理，建议您去……咨询专业律师。" |
-            | **下一步** | "下一步您可以这样做：1.…… 2.…… 3.……" |
-            """)
 
 with col2:
     st.subheader("📋 法律意见书")
@@ -261,10 +210,7 @@ with col2:
                 
                 if enable_compare:
                     system_content += "\n此外，请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。"
-
                 
-
-c032cbd5c6abe99c65defbc7e6094d26d2f13c08
                 messages = [{"role": "system", "content": system_content}]
                 
                 # 处理多模态图片输入
@@ -282,10 +228,7 @@ c032cbd5c6abe99c65defbc7e6094d26d2f13c08
                     messages.append({"role": "user", "content": content_list})
                 else:
                     messages.append({"role": "user", "content": user_prompt})
-
                 
-
- c032cbd5c6abe99c65defbc7e6094d26d2f13c08
                 # 流式输出
                 response = client.chat.completions.create(
                     model=model_option, 
@@ -293,7 +236,6 @@ c032cbd5c6abe99c65defbc7e6094d26d2f13c08
                     temperature=0.5,
                     stream=True
                 )
-
                 
                 result_placeholder = st.empty()
                 full_result = ""
@@ -306,19 +248,6 @@ c032cbd5c6abe99c65defbc7e6094d26d2f13c08
                             full_result += chunk.choices[0].delta.content
                             result_placeholder.markdown(full_result + "▌")
                 
-                result_placeholder = st.empty()
-                full_result = ""
-                st.info("🔄 AI律师正在撰写意见，请稍候...")
-                # ================= 修复 IndexError 核心代码 =================
-                for chunk in response:
-                    # 增加安全判断：确保 chunk 包含 choices 且不是空列表
-                    if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                        # 确保 delta 存在且 content 不是 None
-                       if chunk.choices[0].delta and chunk.choices[0].delta.content is not None: 
-                            full_result += chunk.choices<i class="markdown-ref custom">0</i>.delta.content
-                            result_placeholder.markdown(full_result + "▌")
-                # ============================================================
- c032cbd5c6abe99c65defbc7e6094d26d2f13c08
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
                 
@@ -341,12 +270,8 @@ c032cbd5c6abe99c65defbc7e6094d26d2f13c08
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
-
                 
                 # 导出 PDF
-
-                # 导出 PDF (防乱码处理)
- c032cbd5c6abe99c65defbc7e6094d26d2f13c08
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", size=12)
@@ -361,12 +286,7 @@ c032cbd5c6abe99c65defbc7e6094d26d2f13c08
                     use_container_width=True
                 )
                 st.warning("💡 **重要提示**：由于 PDF 本地字库限制，中文可能显示不全。**正式法律文书请务必下载 Word 版**。")
-
                 
             except Exception as e:
                 st.error(f"❌ 发生错误：{str(e)}")
                 st.exception(e)
-            except Exception as e:
-                st.error(f"❌ 发生错误：{str(e)}")
-                st.exception(e)
- c032cbd5c6abe99c65defbc7e6094d26d2f13c08
