@@ -233,7 +233,7 @@ with col2:
                     # 增加安全判断：确保 chunk 包含 choices 且不是空列表
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
                         # 确保 delta 存在且 content 不是 None
-                        if chunk.choices<i class="markdown-ref custom">0</i>.delta and chunk.choices<i class="markdown-ref custom">0</i>.delta.content is not None:
+                       if chunk.choices[0].delta and chunk.choices[0].delta.content is not None: 
                             full_result += chunk.choices<i class="markdown-ref custom">0</i>.delta.content
                             result_placeholder.markdown(full_result + "▌")
                 # ============================================================
