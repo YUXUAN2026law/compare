@@ -1,4 +1,3 @@
-
 import streamlit as st
 from openai import OpenAI
 import re
@@ -21,7 +20,6 @@ except Exception:
 api_key = re.sub(r'\s+', '', raw_api_key)
 base_url = raw_base_url.strip()
 
-# 流式输出下，超时机制会被弱化，因为只要在一直输出就不会断
 client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
 
 st.set_page_config(page_title="银发法盾 - AI 法律助手", page_icon="⚖️", layout="wide")
@@ -37,13 +35,54 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("**使用指南：**\n1. 输入文字或上传案情截图\n2. 等待AI出具法律意见\n3. 一键下载Word/PDF")
+    
+    st.markdown("---")
+    # 法律名词解释字典
+    with st.expander("📖 老年人常见法律名词解释"):
+        st.markdown("""
+        * **诉讼**：去法院“告状”，让法官来评理。
+        * **赡养**：子女在物质和生活上照顾父母的义务。
+        * **调解**：找居委会或中间人，坐下来好好商量。
+        * **原告/被告**：先告状的叫原告，被告的叫被告。
+        """)
+    
+    st.markdown("---")
+    # [新增] 紧急维权热线
+    st.markdown("""
+    ### 🚨 紧急维权热线（点击直接拨打）
+
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <a href="tel:12348" style="background-color: #1e8e3e; color: white; padding: 20px 40px; border-radius: 15px; text-align: center; font-size: 24px; text-decoration: none; display: block;">
+            📞 法律援助热线 12348
+        </a>
+        <a href="tel:12315" style="background-color: #ff9800; color: white; padding: 20px 40px; border-radius: 15px; text-align: center; font-size: 24px; text-decoration: none; display: block;">
+            📞 消费者投诉热线 12315
+        </a>
+        <a href="tel:110" style="background-color: #f44336; color: white; padding: 20px 40px; border-radius: 15px; text-align: center; font-size: 24px; text-decoration: none; display: block;">
+            🚨 紧急报警 110
+        </a>
+    </div>
+
+    <div style="margin-top: 20px; font-size: 18px; color: #666;">
+    📝 注：此功能在手机端点击可直接拨号，在电脑端需配合电话软件使用。
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # 分栏：左侧输入，右侧输出
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
     st.subheader("📝 案情录入")
-    user_prompt = st.text_area("文字描述案情：", height=150, placeholder="例如：我 65 岁了，有三个子女...")
+    
+    # 解决方言与打字难的提示
+    st.info("""
+    💡 **不会打字？普通话不标准？没关系！** 
+    点击下方输入框，在手机键盘上找到 **🎤 麦克风图标**，按住直接说话。
+    *（如果长辈习惯说方言，可在手机输入法设置中开启“方言识别”，如粤语、四川话等，AI 一样能听懂哦！）*
+    """)
+    
+    user_prompt = st.text_area("文字描述案情：", height=150, placeholder="例如：我 65 岁了，有三个子女，他们都不愿意支付赡养费...")
     
     uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
@@ -64,8 +103,12 @@ with col2:
             st.error("⚠️ 请输入案情或上传图片")
         else:
             try:
-                # 构建系统提示词
-                system_content = "你是一位拥有20年经验的资深老龄权益律师。请用通俗易懂的语言解答，并严格按【案情定性】【法律分析】【维权路径】【行动建议】四部分输出。"
+                # 升级 System Prompt，强制解释专业名词
+                system_content = """你是一位拥有20年经验、极其耐心且亲切的资深老龄权益律师。
+请用最通俗易懂的拉家常语言解答，绝对禁止堆砌长句。
+如果必须提到法律专业术语（如管辖权、诉讼时效），请立刻在括号里用大白话解释一遍。
+请严格按【案情定性】【法律分析】【维权路径】【行动建议】四部分输出。"""
+                
                 if enable_compare:
                     system_content += "\n此外，请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。"
 
@@ -73,40 +116,41 @@ with col2:
                 
                 # 处理多模态图片输入
                 if uploaded_file is not None and enable_ocr:
-                    base64_image = base64.b64encode(uploaded_file.read()).decode('utf-8')
+                    filename = uploaded_file.name.lower()
+                    mime_type = 'image/png' if filename.endswith('.png') else 'image/jpeg'
+                    
+                    with uploaded_file:
+                        base64_image = base64.b64encode(uploaded_file.read()).decode('utf-8')
+                    
                     content_list = [
                         {"type": "text", "text": f"请根据图片中的案情内容进行分析。我的附加说明：{user_prompt}"},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{base64_image}"}}
                     ]
                     messages.append({"role": "user", "content": content_list})
                 else:
                     messages.append({"role": "user", "content": user_prompt})
 
-                # ================= 核心修改：流式输出 =================
+                # 流式输出
                 response = client.chat.completions.create(
                     model=model_option, 
                     messages=messages, 
                     temperature=0.5,
-                    stream=True  # 开启流式输出
+                    stream=True
                 )
 
                 result_placeholder = st.empty()
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
 
-                # 像打字机一样实时显示
                 for chunk in response:
                     if chunk.choices[0].delta.content is not None:
                         full_result += chunk.choices[0].delta.content
                         result_placeholder.markdown(full_result + "▌")
 
-                # 最终生成结束后，去掉闪烁的光标
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
                 
-                # 把最终结果存下来，方便导出
                 result = full_result
-                # ====================================================
                 
                 # --- 文档导出功能 ---
                 st.markdown("### 📥 导出法律意见书")
@@ -119,14 +163,14 @@ with col2:
                 bio = io.BytesIO()
                 doc.save(bio)
                 export_col1.download_button(
-                    label="下载 Word 版",
+                    label="下载 Word 版 (推荐)",
                     data=bio.getvalue(),
                     file_name="法律意见书.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
 
-                # 导出 PDF
+                # 导出 PDF (防乱码处理)
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", size=12)
@@ -134,13 +178,14 @@ with col2:
                 pdf_output = pdf.output(dest="S").encode("latin-1")
                 
                 export_col2.download_button(
-                    label="下载 PDF 版 (英文/数字)",
+                    label="下载 PDF 版 (预览用)",
                     data=pdf_output,
                     file_name="法律意见书.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
-                st.info("💡 PDF包含中文时建议使用Word版，或前往打印店另存为PDF。")
+                st.warning("💡 **重要提示**：由于 PDF 本地字库限制，中文可能显示不全。**正式法律文书请务必下载 Word 版**。")
 
             except Exception as e:
                 st.error(f"❌ 发生错误：{str(e)}")
+                st.exception(e) 
