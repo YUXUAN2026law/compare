@@ -241,15 +241,12 @@ with col2:
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
                 
-                # ================= 修复 IndexError 核心代码 =================
+                # 修复 IndexError 和 HTML 污染代码
                 for chunk in response:
-                    # 增加安全判断：确保 chunk 包含 choices 且不是空列表
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                        # 确保 delta 存在且 content 不是 None
                         if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
                             full_result += chunk.choices[0].delta.content
                             result_placeholder.markdown(full_result + "▌")
-                # ============================================================
                 
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
@@ -274,12 +271,12 @@ with col2:
                     use_container_width=True
                 )
                 
-                # 导出 PDF (防乱码处理，兼容新版fpdf2)
+                # 导出 PDF
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", size=12)
                 pdf.multi_cell(0, 10, result.encode('latin-1', 'replace').decode('latin-1'))
-                pdf_output = bytes(pdf.output(dest="S")) # 👈 这里修复了 encode 报错
+                pdf_output = bytes(pdf.output(dest="S")) 
                 
                 export_col2.download_button(
                     label="下载 PDF 版 (预览用)",
