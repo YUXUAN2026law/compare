@@ -7,6 +7,7 @@ import io
 from docx import Document
 from fpdf import FPDF
 from dotenv import load_dotenv
+from gtts import gTTS
 
 load_dotenv()
 
@@ -37,7 +38,6 @@ with st.sidebar:
     st.markdown("**使用指南：**\n1. 输入文字或上传案情截图\n2. 等待AI出具法律意见\n3. 一键下载Word/PDF")
     
     st.markdown("---")
-    # 法律名词解释字典
     with st.expander("📖 老年人常见法律名词解释"):
         st.markdown("""
         * **诉讼**：去法院“告状”，让法官来评理。
@@ -47,7 +47,6 @@ with st.sidebar:
         """)
     
     st.markdown("---")
-    # 紧急维权热线
     st.markdown("""
     ### 🚨 紧急维权热线（点击直接拨打）
     <div style="display: flex; flex-direction: column; gap: 15px;">
@@ -67,12 +66,10 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    # 功能开关
-    st.markdown("**🛠️ 功能开关：**")
     show_template_guide = st.checkbox("显示案情引导模板", value=True)
     show_qa_guide = st.checkbox("显示Q&A话术总结", value=True)
+    show_community_guide = st.checkbox("显示社区协助指南", value=True)
 
-# 侧边栏Q&A话术总结
 with st.sidebar:
     if show_qa_guide:
         with st.expander("💬 Q&A 话术总结（帮您更好说明案情）"):
@@ -94,33 +91,6 @@ with st.sidebar:
             | **确认人** | "这件事里，对方和您是什么关系？" |
             | **确认证据** | "您有没有留下借条、合同、聊天记录、录音或者视频？" |
             """)
-            
-            st.markdown("**✅ 减少误判**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **复述确认** | "我重复一下您说的重点，您看对不对：……" |
-            | **多选确认** | "您的情况更接近下面哪一种：A.…… B.…… C.……" |
-            | **排除干扰** | "您刚才说的这个情况，和您要解决的问题是一回事吗？" |
-            """)
-            
-            st.markdown("**🗣️ 应对絮叨**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **温和拉回** | "您说的我都记下了，咱们回到……这个问题上。" |
-            | **分块确认** | "您先停一下，我帮您总结一下，您看是不是这3点：……" |
-            | **聚焦目标** | "您今天最想解决的问题是什么？" |
-            """)
-            
-            st.markdown("**📋 结尾与建议**")
-            st.markdown("""
-            | 标题 | 话术模板 |
-            |------|----------|
-            | **总结案情** | "根据您说的，我帮您总结成几句话……" |
-            | **风险提示** | "AI只能给您参考，具体怎么处理，建议您去……咨询专业律师。" |
-            | **下一步** | "下一步您可以这样做：1.…… 2.…… 3.……" |
-            """)
 
 # 分栏：左侧输入，右侧输出
 col1, col2 = st.columns([1, 1.2])
@@ -128,7 +98,6 @@ col1, col2 = st.columns([1, 1.2])
 with col1:
     st.subheader("📝 案情录入")
     
-    # 解决方言与打字难的提示
     st.info("""
     💡 **不会打字？普通话不标准？没关系！** 
     点击下方输入框，在手机键盘上找到 **🎤 麦克风图标**，按住直接说话。
@@ -139,45 +108,60 @@ with col1:
     if "case_input" not in st.session_state:
         st.session_state.case_input = ""
 
-    # 案件类型引导模板
-    if show_template_guide:
-        st.markdown("**📋 不确定怎么描述？试试下面这些模板（点击即可自动填入）：**")
-        template_col1, template_col2 = st.columns(2)
-        
-        # 定义更新函数
-        def update_input(text):
-            st.session_state.case_input = text
+    def update_input(text):
+        st.session_state.case_input = text
 
-        with template_col1:
-            if st.button("💰 赡养纠纷", use_container_width=True, key="tmpl_sdyj"):
-                update_input("我65岁了，有三个子女。大儿子说没钱，二女儿说不想管，小儿子说别的哥哥姐姐先出。我一个月退休金1500元，现在看病吃药要花800元。我该怎么办？")
-            if st.button("💳 消费维权", use_container_width=True, key="tmpl_xfwq"):
-                update_input("我在药店买了2万元的保健品，推销员说能治好我的高血压。现在吃了没用，想退钱，怎么办？")
-            if st.button("🏠 遗产继承", use_container_width=True, key="tmpl_yjcc"):
-                update_input("我老伴去年去世了，留下一套房子和10万元存款。三个子女对怎么分吵个不停，我们老两口生前没立遗嘱，该怎么办？")
-            if st.button("💵 民间借贷", use_container_width=True, key="tmpl_mjwd"):
-                update_input("3年前我借给老李5万块钱，现在要他还钱。他借的时候写了借条，现在说没钱还，怎么办？")
+    # 案件类型引导模板（升级版：三步漏斗式引导）
+    if show_template_guide:
+        st.markdown("**📋 不知道怎么描述？请按提示点选（我们会自动为您生成案情）：**")
         
-        with template_col2:
-            if st.button("👨‍👩‍👧 婚姻家庭", use_container_width=True, key="tmpl_hjyt"):
-                update_input("我老公要离婚，想把我赶出家。房子是他婚前买的，但婚后我们一起还贷。我怎么办？")
-            if st.button("⚠️ 其他纠纷", use_container_width=True, key="tmpl_qtjq"):
-                update_input("（请描述您遇到的法律纠纷，我会帮您分析该怎么处理）")
+        # 第一步：定性（大类）
+        main_category = st.radio(
+            "1. 您遇到了哪方面的纠纷？（单选）",
+            ["婚姻家庭", "赡养纠纷", "消费维权", "民间借贷", "遗产继承"],
+            horizontal=True
+        )
+        
+        # 第二步：诉求与事实（小类多选）
+        facts = []
+        if main_category == "婚姻家庭":
+            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["遭遇家暴", "对方出轨", "争夺孩子抚养权", "想离婚对方不同意", "隐匿转移财产"])
+        elif main_category == "赡养纠纷":
+            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["子女不给生活费/医药费", "子女逢年过节不看望", "生病住院没人管", "多个子女互相推诿"])
+        elif main_category == "消费维权":
+            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["被忽悠买了高价保健品", "买到假货/过期食品", "办了预付卡老板跑路", "被虚假广告欺骗"])
+        elif main_category == "民间借贷":
+            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["借了钱到期不还", "找不到借钱的人了", "对方耍赖不认账", "利息高得离谱"])
+        elif main_category == "遗产继承":
+            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["老人没留遗嘱", "对遗嘱真假有争议", "其他亲属霸占房产", "存款分配不公"])
+
+        # 第三步：证据情况
+        evidence = st.radio(
+            "3. 您手里有什么证据？（单选）",
+            ["有书面合同/借条/遗嘱", "只有微信聊天记录/录音", "有转账记录", "什么证据都没有"],
+            horizontal=True
+        )
+
+        # 第四步：一键生成草稿
+        if facts: 
+            if st.button("✨ 智能拼装案情描述", use_container_width=True, type="secondary"):
+                fact_text = "、".join(facts)
+                draft_prompt = f"律师您好，我遇到了【{main_category}】方面的问题。具体情况是：{fact_text}。我目前的证据情况是：{evidence}。请问我该怎么办？"
+                update_input(draft_prompt)
     
-    # 使用 session_state.case_input 双向绑定
     user_prompt = st.text_area("文字描述案情：", height=150, placeholder="例如：我 65 岁了，有三个子女，他们都不愿意支付赡养费...", key="case_input")
     
     uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
         st.image(uploaded_file, caption="已上传案情图", width=300)
         
-    # 功能开关
     st.markdown("**🛠️ 高级功能配置：**")
     enable_compare = st.checkbox("开启【类案对比与裁判规则】", value=True)
     enable_ocr = st.checkbox("开启【图片OCR自动提取】", value=True)
     
     analyze_btn = st.button("🚀 生成法律意见", type="primary", use_container_width=True)
 
+# 右侧：法律意见书 + 新增功能
 with col2:
     st.subheader("📋 法律意见书")
     
@@ -186,7 +170,6 @@ with col2:
             st.error("⚠️ 请输入案情或上传图片")
         else:
             try:
-                # 升级 System Prompt，整合絮叨预案和限制池
                 system_content = """你是一位拥有20年经验、极其耐心且亲切的资深老龄权益律师。
 请用最通俗易懂的拉家常语言解答，绝对禁止堆砌长句。
 如果必须提到法律专业术语（如管辖权、诉讼时效），请立刻在括号里用大白话解释一遍。
@@ -210,10 +193,8 @@ with col2:
                 
                 if enable_compare:
                     system_content += "\n此外，请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。"
-                
                 messages = [{"role": "system", "content": system_content}]
                 
-                # 处理多模态图片输入
                 if uploaded_file is not None and enable_ocr:
                     filename = uploaded_file.name.lower()
                     mime_type = 'image/png' if filename.endswith('.png') else 'image/jpeg'
@@ -229,35 +210,48 @@ with col2:
                 else:
                     messages.append({"role": "user", "content": user_prompt})
                 
-                # 流式输出
                 response = client.chat.completions.create(
                     model=model_option, 
                     messages=messages, 
                     temperature=0.5,
                     stream=True
                 )
-                
                 result_placeholder = st.empty()
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
                 
-                # 修复 IndexError 和 HTML 污染代码
+                # ================= 核心流式输出 (干净版) =================
                 for chunk in response:
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
                         if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
                             full_result += chunk.choices[0].delta.content
                             result_placeholder.markdown(full_result + "▌")
+                # ============================================================
                 
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
                 
                 result = full_result
                 
-                # --- 文档导出功能 ---
+                # 语音朗读
+                st.markdown("### 🔊 语音朗读法律意见书")
+                audio_buffer = io.BytesIO()
+                try:
+                    tts = gTTS(text=result, lang='zh-cn')
+                    tts.write_to_fp(audio_buffer)
+                    audio_buffer.seek(0)
+                except Exception as e:
+                    st.warning(f"⚠️ 语音朗读暂时不可用：{str(e)}")
+                    audio_buffer = None
+                
+                if audio_buffer is not None:
+                    st.audio(audio_buffer, format='audio/mpeg')
+                    st.caption("💡 支持暂停/加速/下载，点击右上角三个点继续")
+                
+                # 导出
                 st.markdown("### 📥 导出法律意见书")
                 export_col1, export_col2 = st.columns(2)
                 
-                # 导出 Word
                 doc = Document()
                 doc.add_heading('银发法盾 - AI法律意见书', 0)
                 doc.add_paragraph(result)
@@ -271,7 +265,6 @@ with col2:
                     use_container_width=True
                 )
                 
-                # 导出 PDF
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", size=12)
@@ -290,3 +283,75 @@ with col2:
             except Exception as e:
                 st.error(f"❌ 发生错误：{str(e)}")
                 st.exception(e)
+
+# 社区居委会协助指南
+if show_community_guide:
+    st.markdown("---")
+    st.subheader("🏘️ 社区居委会协助指南")
+    st.info("""
+    当法律规定难以单独解决时，您可以寻求社区居委会的帮助。居委会是居民自治组织，可以调解邻里纠纷、家庭矛盾等。
+    """)
+    
+    citizen_col1, citizen_col2 = st.columns(2)
+    
+    def create_community_document():
+        doc = Document()
+        doc.add_heading('居委会协助申请书', 0)
+        doc.add_paragraph('')
+        doc.add_paragraph('**申请人**：[您的姓名]')
+        doc.add_paragraph('**联系电话**：[您的电话]')
+        doc.add_paragraph('**申请事项**：请求社区居委会协助调解')
+        doc.add_paragraph('')
+        doc.add_heading('事由说明', level=1)
+        doc.add_paragraph('请在此处描述您的具体情况，如：赡养纠纷、邻里矛盾、物业问题等')
+        doc.add_paragraph('')
+        doc.add_heading('调解请求', level=1)
+        doc.add_paragraph('恳请贵居委会组织相关人员进行调解，协助双方达成共识。')
+        doc.add_paragraph('')
+        doc.add_heading('附件', level=1)
+        doc.add_paragraph('[相关证据材料，如照片、通知等]')
+        doc.add_paragraph('')
+        doc.add_paragraph('申请人（签名）：')
+        doc.add_paragraph('日期：    年   月   日')
+        
+        bio = io.BytesIO()
+        doc.save(bio)
+        return bio.getvalue()
+    
+    with citizen_col1:
+        st.markdown("**📝 居委会通用申请文书模板**")
+        st.markdown("""
+        点击下载下方按钮，获取标准格式的 Word 申请书模板。  
+        填写后提交给您所在小区的居委会。
+        """)
+        st.download_button(
+            label="下载 申请书模板 (.docx)",
+            data=create_community_document(),
+            file_name="居委会协助申请书.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
+        )
+        st.caption("✅ 此文件可用 Word 2016 及以上版本打开")
+    
+    with citizen_col2:
+        st.markdown("**📞 社区走访建议**")
+        st.markdown("""
+        **去哪里找居委会**：
+        - 您所在的小区居委会办公室
+        - 街道办事处（乡镇政府下辖）
+        - 社区服务中心
+        
+        **带什么材料**：
+        1. 身份证复印件
+        2. 问题相关证据（照片、合同、聊天记录）
+        3. 写好的情况说明（可用上方模板）
+        
+        **调解后的好处**：
+        - 免费、高效的纠纷解决方式
+        - 不伤和气，保留邻里关系
+        - 若调解不成，仍可向法院起诉
+        
+        **注意事项**：
+        - 居委会调解基于双方自愿原则
+        - 调解协议具有法律约束力
+        """)
