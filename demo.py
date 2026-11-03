@@ -22,7 +22,7 @@ base_url = raw_base_url.strip()
 
 client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
 
-st.set_page_config(page_title="银发法盾 - AI 法律助手", page_icon="⚖️\n", layout="wide")
+st.set_page_config(page_title="银发法盾 - AI 法律助手", page_icon="⚖️", layout="wide")
 
 st.title("⚖️ 银发法盾")
 st.markdown("**专为中老年人打造的法律助手**，支持图片案情识别、类案对比与文书导出。")
@@ -40,7 +40,7 @@ with st.sidebar:
     # 法律名词解释字典
     with st.expander("📖 老年人常见法律名词解释"):
         st.markdown("""
-        * **诉讼**：去法院"告状"，让法官来评理。
+        * **诉讼**：去法院“告状”，让法官来评理。
         * **赡养**：子女在物质和生活上照顾父母的义务。
         * **调解**：找居委会或中间人，坐下来好好商量。
         * **原告/被告**：先告状的叫原告，被告的叫被告。
@@ -137,6 +137,7 @@ with col1:
     uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
         st.image(uploaded_file, caption="已上传案情图", width=300)
+        
     # 功能开关
     st.markdown("**🛠️ 高级功能配置：**")
     enable_compare = st.checkbox("开启【类案对比与裁判规则】", value=True)
@@ -144,7 +145,7 @@ with col1:
     
     analyze_btn = st.button("🚀 生成法律意见", type="primary", use_container_width=True)
 
-# 右侧：法律意见书 + 新增功能
+# 右侧：法律意见书
 with col2:
     st.subheader("📋 法律意见书")
     
@@ -177,6 +178,7 @@ with col2:
                 
                 if enable_compare:
                     system_content += "\n此外，请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。"
+                
                 messages = [{"role": "system", "content": system_content}]
                 
                 # 处理多模态图片输入
@@ -194,6 +196,7 @@ with col2:
                     messages.append({"role": "user", "content": content_list})
                 else:
                     messages.append({"role": "user", "content": user_prompt})
+                
                 # 流式输出
                 response = client.chat.completions.create(
                     model=model_option, 
@@ -201,18 +204,19 @@ with col2:
                     temperature=0.5,
                     stream=True
                 )
+                
                 result_placeholder = st.empty()
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
+                
                 # ================= 修复 IndexError 核心代码 =================
                 for chunk in response:
-                    # 增加安全判断：确保 chunk 包含 choices 且不是空列表
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                        # 确保 delta 存在且 content 不是 None
                         if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
-                            full_result += chunk.choices<i class="markdown-ref custom">0</i>.delta.content
+                            full_result += chunk.choices[0].delta.content
                             result_placeholder.markdown(full_result + "▌")
                 # ============================================================
+                
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
                 
@@ -275,6 +279,7 @@ with col2:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
+                
                 # 导出 PDF (防乱码处理)
                 pdf = FPDF()
                 pdf.add_page()
