@@ -7,8 +7,7 @@ import io
 from docx import Document
 from fpdf import FPDF
 from dotenv import load_dotenv
-from gtts import gTTS  # 新增：Google TTS 库
-import time  # 新增：用于控制循环
+from gtts import gTTS  # Google TTS 库：用于语音朗读
 
 load_dotenv()
 
@@ -221,25 +220,22 @@ with col2:
                 result = full_result
                 
                 # ============================================
-                # 新增核心功能：语音朗读（无 JavaScript 方案）
+                # 功能1：语音朗读（gTTS + st.audio，无 JavaScript）
                 # ============================================
-                st.markdown("""
-                ### 🔊 语音朗读 Legal Opinion
-                """)
+                st.markdown("### 🔊 语音朗读法律意见书")
                 
-                # 创建 TTS 音频缓冲区
                 audio_buffer = io.BytesIO()
                 try:
                     tts = gTTS(text=result, lang='zh-cn')
-                    tts.save(audio_buffer)
-                    audio_buffer.seek(0)  # 重置指针到开头
+                    tts.write_to_fp(audio_buffer)
+                    audio_buffer.seek(0)
                 except Exception as e:
-                    st.warning(f"⚠️ 语音合成暂时不可用：{str(e)}")
+                    st.warning(f"⚠️ 语音朗读暂时不可用：{str(e)}")
                     audio_buffer = None
                 
                 if audio_buffer is not None:
                     st.audio(audio_buffer, format='audio/mpeg')
-                    st.info("📢 音频播放中，您可以暂停或调节音量")
+                    st.caption("💡 支持暂停/加速/下载，点击右上角三个点继续")
                 
                 # --- 文档导出功能 ---
                 st.markdown("### 📥 导出法律意见书")
@@ -279,7 +275,7 @@ with col2:
                 st.exception(e)
 
 # ============================================
-# 新增功能2：社区居委会协助指南
+# 功能2：社区居委会协助指南（修复 .docx 生成）
 # ============================================
 if show_community_guide:
     st.markdown("---")
@@ -290,28 +286,56 @@ if show_community_guide:
     
     citizen_col1, citizen_col2 = st.columns(2)
     
+    # 修复：使用 python-docx 生成真正的 .docx 文件
+    def create_community_document():
+        """生成居委会协助申请书 .docx 文件"""
+        doc = Document()
+        
+        # 标题
+        doc.add_heading('居委会协助申请书', 0)
+        doc.add_paragraph('')
+        
+        # 基本信息
+        doc.add_paragraph('**申请人**：[您的姓名]')
+        doc.add_paragraph('**联系电话**：[您的电话]')
+        doc.add_paragraph('**申请事项**：请求社区居委会协助调解')
+        doc.add_paragraph('')
+        
+        # 事由说明
+        doc.add_heading('事由说明', level=1)
+        doc.add_paragraph('请在此处描述您的具体情况，如：赡养纠纷、邻里矛盾、物业问题等')
+        doc.add_paragraph('')
+        
+        # 调解请求
+        doc.add_heading('调解请求', level=1)
+        doc.add_paragraph('恳请贵居委会组织相关人员进行调解，协助双方达成共识。')
+        doc.add_paragraph('')
+        
+        # 附件
+        doc.add_heading('附件', level=1)
+        doc.add_paragraph('[相关证据材料，如照片、通知等]')
+        doc.add_paragraph('')
+        doc.add_paragraph('申请人（签名）：')
+        doc.add_paragraph('日期：    年   月   日')
+        
+        bio = io.BytesIO()
+        doc.save(bio)
+        return bio.getvalue()
+    
     with citizen_col1:
         st.markdown("**📝 居委会通用申请文书模板**")
         st.markdown("""
-        **申请人**：[您的姓名]  
-        **联系电话**：[您的电话]  
-        **申请事项**：请求社区居委会协助调解  
-        
-        **事由说明**：  
-        [在此处描述您的具体情况，如：赡养纠纷、邻里矛盾、物业问题等]  
-        
-        **调解请求**：  
-        恳请贵居委会组织相关人员进行调解，协助双方达成共识。  
-        
-        **附件**：[相关证据材料，如照片、通知等]  
+        点击下载下方按钮，获取标准格式的 Word 申请书模板。  
+        填写后提交给您所在小区的居委会。
         """)
         st.download_button(
-            label="下载 申请文书模板",
-            data="申请人：[您的姓名]\n联系电话：[您的电话]\n申请事项：请求社区居委会协助调解\n\n事由说明：\n[在此处描述您的具体情况]\n\n调解请求：\n恳请贵居委会组织相关人员进行调解，协助双方达成共识。\n\n附件：[相关证据材料]",
+            label="下载 申请书模板 (.docx)",
+            data=create_community_document(),
             file_name="居委会协助申请书.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True
         )
+        st.caption("✅ 此文件可用 Word 2016 及以上版本打开")
     
     with citizen_col2:
         st.markdown("**📞 社区走访建议**")
