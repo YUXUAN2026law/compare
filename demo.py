@@ -7,7 +7,6 @@ import io
 from docx import Document
 from fpdf import FPDF
 from dotenv import load_dotenv
-import json
 
 load_dotenv()
 
@@ -68,56 +67,10 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    # 新增：案情引导模板开关
+    # 功能开关
     st.markdown("**🛠️ 功能开关：**")
     show_template_guide = st.sidebar.checkbox("显示案情引导模板", value=True)
     show_qa_guide = st.sidebar.checkbox("显示Q&A话术总结", value=True)
-
-# 分栏：左侧输入，右侧输出
-col1, col2 = st.columns([1, 1.2])
-
-with col1:
-    st.subheader("📝 案情录入")
-    
-    # 解决方言与打字难的提示
-    st.info("""
-    💡 **不会打字？普通话不标准？没关系！** 
-    点击下方输入框，在手机键盘上找到 **🎤 麦克风图标**，按住直接说话。
-    *（如果长辈习惯说方言，可在手机输入法设置中开启"方言识别"，如粤语、四川话等，AI 一样能听懂哦！）*
-    """)
-    
-    # 案件类型引导模板
-    if show_template_guide:
-        st.markdown("**📋 不确定怎么描述？试试下面这些模板（点击即可自动填入）：**")
-        template_col1, template_col2 = st.columns(2)
-        
-        with template_col1:
-            if st.button("💰 赡养纠纷", use_container_width=True, key="tmpl_sdyj"):
-                st.session_state.user_prompt = "我65岁了，有三个子女。大儿子说没钱，二女儿说不想管，小儿子说别的哥哥姐姐先出。我一个月退休金1500元，现在看病吃药要花800元。我该怎么办？"
-            if st.button("💳 消费维权", use_container_width=True, key="tmpl_xfwq"):
-                st.session_state.user_prompt = "我在药店买了2万元的保健品，推销员说能治好我的高血压。现在吃了没用，想退钱，怎么办？"
-            if st.button("🏠 遗产继承", use_container_width=True, key="tmpl_yjcc"):
-                st.session_state.user_prompt = "我老伴去年去世了，留下一套房子和10万元存款。三个子女对怎么分吵个不停，我们老两口生前没立遗嘱，该怎么办？"
-            if st.button("💵 民间借贷", use_container_width=True, key="tmpl_mjwd"):
-                st.session_state.user_prompt = "3年前我借给老李5万块钱，现在要他还钱。他借的时候写了借条，现在说没钱还，怎么办？"
-        
-        with template_col2:
-            if st.button("👨‍👩‍👧 婚姻家庭", use_container_width=True, key="tmpl_hjyt"):
-                st.session_state.user_prompt = "我老公要离婚，想把我赶出家。房子是他婚前买的，但婚后我们一起还贷。我怎么办？"
-            if st.button("⚠️ 其他纠纷", use_container_width=True, key="tmpl_qtjq"):
-                st.session_state.user_prompt = "（请描述您遇到的法律纠纷，我会帮您分析该怎么处理）"
-    
-    user_prompt = st.text_area("文字描述案情：", height=150, placeholder="例如：我 65 岁了，有三个子女，他们都不愿意支付赡养费...", key="case_input")
-    
-    uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
-    if uploaded_file is not None:
-        st.image(uploaded_file, caption="已上传案情图", width=300)
-    # 功能开关
-    st.markdown("**🛠️ 高级功能配置：**")
-    enable_compare = st.checkbox("开启【类案对比与裁判规则】", value=True)
-    enable_ocr = st.checkbox("开启【图片OCR自动提取】", value=True)
-    
-    analyze_btn = st.button("🚀 生成法律意见", type="primary", use_container_width=True)
 
 # 侧边栏Q&A话术总结
 with st.sidebar:
@@ -169,6 +122,62 @@ with st.sidebar:
             | **下一步** | "下一步您可以这样做：1.…… 2.…… 3.……" |
             """)
 
+# 分栏：左侧输入，右侧输出
+col1, col2 = st.columns([1, 1.2])
+
+with col1:
+    st.subheader("📝 案情录入")
+    
+    # 解决方言与打字难的提示
+    st.info("""
+    💡 **不会打字？普通话不标准？没关系！** 
+    点击下方输入框，在手机键盘上找到 **🎤 麦克风图标**，按住直接说话。
+    *（如果长辈习惯说方言，可在手机输入法设置中开启"方言识别"，如粤语、四川话等，AI 一样能听懂哦！）*
+    """)
+    
+    # 初始化 session_state
+    if "case_input" not in st.session_state:
+        st.session_state.case_input = ""
+
+    # 案件类型引导模板
+    if show_template_guide:
+        st.markdown("**📋 不确定怎么描述？试试下面这些模板（点击即可自动填入）：**")
+        template_col1, template_col2 = st.columns(2)
+        
+        # 定义更新函数
+        def update_input(text):
+            st.session_state.case_input = text
+
+        with template_col1:
+            if st.button("💰 赡养纠纷", use_container_width=True, key="tmpl_sdyj"):
+                update_input("我65岁了，有三个子女。大儿子说没钱，二女儿说不想管，小儿子说别的哥哥姐姐先出。我一个月退休金1500元，现在看病吃药要花800元。我该怎么办？")
+            if st.button("💳 消费维权", use_container_width=True, key="tmpl_xfwq"):
+                update_input("我在药店买了2万元的保健品，推销员说能治好我的高血压。现在吃了没用，想退钱，怎么办？")
+            if st.button("🏠 遗产继承", use_container_width=True, key="tmpl_yjcc"):
+                update_input("我老伴去年去世了，留下一套房子和10万元存款。三个子女对怎么分吵个不停，我们老两口生前没立遗嘱，该怎么办？")
+            if st.button("💵 民间借贷", use_container_width=True, key="tmpl_mjwd"):
+                update_input("3年前我借给老李5万块钱，现在要他还钱。他借的时候写了借条，现在说没钱还，怎么办？")
+        
+        with template_col2:
+            if st.button("👨‍👩‍👧 婚姻家庭", use_container_width=True, key="tmpl_hjyt"):
+                update_input("我老公要离婚，想把我赶出家。房子是他婚前买的，但婚后我们一起还贷。我怎么办？")
+            if st.button("⚠️ 其他纠纷", use_container_width=True, key="tmpl_qtjq"):
+                update_input("（请描述您遇到的法律纠纷，我会帮您分析该怎么处理）")
+    
+    # 使用 session_state.case_input 双向绑定
+    user_prompt = st.text_area("文字描述案情：", height=150, placeholder="例如：我 65 岁了，有三个子女，他们都不愿意支付赡养费...", key="case_input")
+    
+    uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
+    if uploaded_file is not None:
+        st.image(uploaded_file, caption="已上传案情图", width=300)
+        
+    # 功能开关
+    st.markdown("**🛠️ 高级功能配置：**")
+    enable_compare = st.checkbox("开启【类案对比与裁判规则】", value=True)
+    enable_ocr = st.checkbox("开启【图片OCR自动提取】", value=True)
+    
+    analyze_btn = st.button("🚀 生成法律意见", type="primary", use_container_width=True)
+
 with col2:
     st.subheader("📋 法律意见书")
     
@@ -201,6 +210,7 @@ with col2:
                 
                 if enable_compare:
                     system_content += "\n此外，请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。"
+                
                 messages = [{"role": "system", "content": system_content}]
                 
                 # 处理多模态图片输入
@@ -218,6 +228,7 @@ with col2:
                     messages.append({"role": "user", "content": content_list})
                 else:
                     messages.append({"role": "user", "content": user_prompt})
+                
                 # 流式输出
                 response = client.chat.completions.create(
                     model=model_option, 
@@ -225,18 +236,18 @@ with col2:
                     temperature=0.5,
                     stream=True
                 )
+                
                 result_placeholder = st.empty()
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
-                # ================= 修复 IndexError 核心代码 =================
+                
+                # 修复 IndexError 和 HTML 污染代码
                 for chunk in response:
-                    # 增加安全判断：确保 chunk 包含 choices 且不是空列表
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                        # 确保 delta 存在且 content 不是 None
-                       if chunk.choices[0].delta and chunk.choices[0].delta.content is not None: 
-                            full_result += chunk.choices<i class="markdown-ref custom">0</i>.delta.content
+                        if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
+                            full_result += chunk.choices[0].delta.content
                             result_placeholder.markdown(full_result + "▌")
-                # ============================================================
+                
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
                 
@@ -259,12 +270,13 @@ with col2:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
-                # 导出 PDF (防乱码处理)
+                
+                # 导出 PDF
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", size=12)
                 pdf.multi_cell(0, 10, result.encode('latin-1', 'replace').decode('latin-1'))
-                pdf_output = pdf.output(dest="S").encode("latin-1")
+                pdf_output = bytes(pdf.output(dest="S")) 
                 
                 export_col2.download_button(
                     label="下载 PDF 版 (预览用)",
@@ -274,6 +286,7 @@ with col2:
                     use_container_width=True
                 )
                 st.warning("💡 **重要提示**：由于 PDF 本地字库限制，中文可能显示不全。**正式法律文书请务必下载 Word 版**。")
+                
             except Exception as e:
                 st.error(f"❌ 发生错误：{str(e)}")
                 st.exception(e)
