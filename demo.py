@@ -7,7 +7,7 @@ import io
 from docx import Document
 from fpdf import FPDF
 from dotenv import load_dotenv
-from gtts import gTTS  # Google TTS 库：用于语音朗读
+from gtts import gTTS
 
 load_dotenv()
 
@@ -41,7 +41,7 @@ with st.sidebar:
     # 法律名词解释字典
     with st.expander("📖 老年人常见法律名词解释"):
         st.markdown("""
-        * **诉讼**：去法院"告状"，让法官来评理。
+        * **诉讼**：去法院“告状”，让法官来评理。
         * **赡养**：子女在物质和生活上照顾父母的义务。
         * **调解**：找居委会或中间人，坐下来好好商量。
         * **原告/被告**：先告状的叫原告，被告的叫被告。
@@ -205,15 +205,15 @@ with col2:
                 result_placeholder = st.empty()
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
-                # ================= 修复 IndexError 核心代码 =================
+                
+                # ================= 彻底清洗乱码后的核心代码 =================
                 for chunk in response:
-                    # 增加安全判断：确保 chunk 包含 choices 且不是空列表
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                        # 确保 delta 存在且 content 不是 None
-                        if chunk.choices<i class="markdown-ref custom">0</i>.delta and chunk.choices<i class="markdown-ref custom">0</i>.delta.content is not None:
-                            full_result += chunk.choices<i class="markdown-ref custom">0</i>.delta.content
+                        if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
+                            full_result += chunk.choices[0].delta.content
                             result_placeholder.markdown(full_result + "▌")
                 # ============================================================
+                
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
                 
