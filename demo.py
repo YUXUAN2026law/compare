@@ -68,9 +68,9 @@ with st.sidebar:
     
     st.markdown("---")
     # 功能开关
-    st.markdown("**🛠️ 功能开关：**")
-    show_template_guide = st.sidebar.checkbox("显示案情引导模板", value=True)
-    show_qa_guide = st.sidebar.checkbox("显示Q&A话术总结", value=True)
+    st.markdown("**🛠️ 功能开关：**")    
+        show_template_guide = st.sidebar.checkbox("显示案情引导模板", value=True)
+        show_qa_guide = st.sidebar.checkbox("显示Q&A话术总结", value=True)
 
 # 侧边栏Q&A话术总结
 with st.sidebar:
