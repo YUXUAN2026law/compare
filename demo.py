@@ -40,7 +40,7 @@ with st.sidebar:
     # 法律名词解释字典
     with st.expander("📖 老年人常见法律名词解释"):
         st.markdown("""
-        * **诉讼**：去法院"告状"，让法官来评理。
+        * **诉讼**：去法院“告状”，让法官来评理。
         * **赡养**：子女在物质和生活上照顾父母的义务。
         * **调解**：找居委会或中间人，坐下来好好商量。
         * **原告/被告**：先告状的叫原告，被告的叫被告。
@@ -68,9 +68,9 @@ with st.sidebar:
     
     st.markdown("---")
     # 功能开关
-    st.markdown("**🛠️ 功能开关：**")    
-        show_template_guide = st.sidebar.checkbox("显示案情引导模板", value=True)
-        show_qa_guide = st.sidebar.checkbox("显示Q&A话术总结", value=True)
+    st.markdown("**🛠️ 功能开关：**")
+    show_template_guide = st.checkbox("显示案情引导模板", value=True)
+    show_qa_guide = st.checkbox("显示Q&A话术总结", value=True)
 
 # 侧边栏Q&A话术总结
 with st.sidebar:
