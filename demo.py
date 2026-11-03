@@ -47,7 +47,7 @@ with st.sidebar:
         """)
     
     st.markdown("---")
-    # [新增] 紧急维权热线
+    # 紧急维权热线
     st.markdown("""
     ### 🚨 紧急维权热线（点击直接拨打）
 
@@ -142,10 +142,15 @@ with col2:
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
 
+                # ================= 修复 IndexError 核心代码 =================
                 for chunk in response:
-                    if chunk.choices[0].delta.content is not None:
-                        full_result += chunk.choices[0].delta.content
-                        result_placeholder.markdown(full_result + "▌")
+                    # 增加安全判断：确保 chunk 包含 choices 且不是空列表
+                    if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
+                        # 确保 delta 存在且 content 不是 None
+                        if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
+                            full_result += chunk.choices[0].delta.content
+                            result_placeholder.markdown(full_result + "▌")
+                # ============================================================
 
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
@@ -188,4 +193,4 @@ with col2:
 
             except Exception as e:
                 st.error(f"❌ 发生错误：{str(e)}")
-                st.exception(e) 
+                st.exception(e)
