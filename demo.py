@@ -7,6 +7,8 @@ import io
 from docx import Document
 from fpdf import FPDF
 from dotenv import load_dotenv
+from gtts import gTTS  # 新增：Google TTS 库
+import time  # 新增：用于控制循环
 
 load_dotenv()
 
@@ -40,7 +42,7 @@ with st.sidebar:
     # 法律名词解释字典
     with st.expander("📖 老年人常见法律名词解释"):
         st.markdown("""
-        * **诉讼**：去法院“告状”，让法官来评理。
+        * **诉讼**：去法院"告状"，让法官来评理。
         * **赡养**：子女在物质和生活上照顾父母的义务。
         * **调解**：找居委会或中间人，坐下来好好商量。
         * **原告/被告**：先告状的叫原告，被告的叫被告。
@@ -137,7 +139,6 @@ with col1:
     uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
         st.image(uploaded_file, caption="已上传案情图", width=300)
-        
     # 功能开关
     st.markdown("**🛠️ 高级功能配置：**")
     enable_compare = st.checkbox("开启【类案对比与裁判规则】", value=True)
@@ -145,7 +146,7 @@ with col1:
     
     analyze_btn = st.button("🚀 生成法律意见", type="primary", use_container_width=True)
 
-# 右侧：法律意见书
+# 右侧：法律意见书 + 新增功能
 with col2:
     st.subheader("📋 法律意见书")
     
@@ -178,7 +179,6 @@ with col2:
                 
                 if enable_compare:
                     system_content += "\n此外，请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。"
-                
                 messages = [{"role": "system", "content": system_content}]
                 
                 # 处理多模态图片输入
@@ -196,7 +196,6 @@ with col2:
                     messages.append({"role": "user", "content": content_list})
                 else:
                     messages.append({"role": "user", "content": user_prompt})
-                
                 # 流式输出
                 response = client.chat.completions.create(
                     model=model_option, 
@@ -204,63 +203,43 @@ with col2:
                     temperature=0.5,
                     stream=True
                 )
-                
                 result_placeholder = st.empty()
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
-                
                 # ================= 修复 IndexError 核心代码 =================
                 for chunk in response:
+                    # 增加安全判断：确保 chunk 包含 choices 且不是空列表
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                        if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
-                            full_result += chunk.choices[0].delta.content
+                        # 确保 delta 存在且 content 不是 None
+                        if chunk.choices<i class="markdown-ref custom">0</i>.delta and chunk.choices<i class="markdown-ref custom">0</i>.delta.content is not None:
+                            full_result += chunk.choices<i class="markdown-ref custom">0</i>.delta.content
                             result_placeholder.markdown(full_result + "▌")
                 # ============================================================
-                
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
                 
                 result = full_result
                 
                 # ============================================
-                # 新增功能1：语音朗读
+                # 新增核心功能：语音朗读（无 JavaScript 方案）
                 # ============================================
                 st.markdown("""
-                <audio id="reader-audio" controls style="width: 100%; margin: 10px 0;">
-                    您的浏览器不支持音频播放
-                </audio>
-                <button onclick="readAloud()" style="background-color: #2196F3; color: white; padding: 12px 24px; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; width: 100%;">
-                    🔊 朗读内容
-                </button>
-                <button onclick="stopReading()" style="background-color: #F44336; color: white; padding: 12px 24px; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; width: 100%; margin-top: 10px;">
-                    ⏹️ 停止朗读
-                </button>
-                """, unsafe_allow_html=True)
+                ### 🔊 语音朗读 Legal Opinion
+                """)
                 
-                # JavaScript 实现语音合成
-                st.markdown("""
-                <script>
-                function readAloud() {
-                    if ('speechSynthesis' in window) {
-                        const text = document.querySelector('.stMarkdown').textContent;
-                        const utterance = new SpeechSynthesisUtterance(text);
-                        utterance.lang = 'zh-CN';
-                        utterance.rate = 0.9;  // 稍慢语速
-                        window.speechSynthesis.speak(utterance);
-                        alert('正在为您朗读...');
-                    } else {
-                        alert('您的浏览器不支持语音合成功能');
-                    }
-                }
+                # 创建 TTS 音频缓冲区
+                audio_buffer = io.BytesIO()
+                try:
+                    tts = gTTS(text=result, lang='zh-cn')
+                    tts.save(audio_buffer)
+                    audio_buffer.seek(0)  # 重置指针到开头
+                except Exception as e:
+                    st.warning(f"⚠️ 语音合成暂时不可用：{str(e)}")
+                    audio_buffer = None
                 
-                function stopReading() {
-                    if ('speechSynthesis' in window) {
-                        window.speechSynthesis.cancel();
-                        alert('已停止朗读');
-                    }
-                }
-                </script>
-                """, unsafe_allow_html=True)
+                if audio_buffer is not None:
+                    st.audio(audio_buffer, format='audio/mpeg')
+                    st.info("📢 音频播放中，您可以暂停或调节音量")
                 
                 # --- 文档导出功能 ---
                 st.markdown("### 📥 导出法律意见书")
@@ -279,7 +258,6 @@ with col2:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
-                
                 # 导出 PDF (防乱码处理)
                 pdf = FPDF()
                 pdf.add_page()
