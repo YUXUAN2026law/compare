@@ -4,3 +4,4 @@ python-dotenv
 python-docx
 fpdf2
 gTTS
+mcp>=2.0.0

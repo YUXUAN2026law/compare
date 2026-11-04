@@ -108,14 +108,21 @@ with col1:
     
     if "case_input" not in st.session_state:
         st.session_state.case_input = ""
-
     def update_input(text):
         st.session_state.case_input = text
+<<<<<<< HEAD
 
     # 案件类型引导模板
     if show_template_guide:
         st.markdown("**📋 不知道怎么描述？请按提示点选：**")
         
+=======
+        
+    # 案件类型引导模板
+    if show_template_guide:
+        st.markdown("**📋 不知道怎么描述？请按提示点选：**")
+        
+>>>>>>> 7c364440839fbf7247a023cc3176912eb3e7fa75
         main_category = st.radio(
             "1. 您遇到了哪方面的纠纷？",
             ["婚姻家庭", "赡养纠纷", "消费维权", "民间借贷", "遗产继承"],
@@ -133,19 +140,38 @@ with col1:
             facts = st.multiselect("2. 具体情况（可多选）", ["借了钱到期不还", "找不到借钱的人了", "对方耍赖不认账", "利息高得离谱"])
         elif main_category == "遗产继承":
             facts = st.multiselect("2. 具体情况（可多选）", ["老人没留遗嘱", "对遗嘱真假有争议", "其他亲属霸占房产", "存款分配不公"])
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 7c364440839fbf7247a023cc3176912eb3e7fa75
         evidence = st.radio(
             "3. 证据情况",
             ["有书面合同/借条/遗嘱", "只有微信聊天记录/录音", "有转账记录", "什么证据都没有"],
             horizontal=True
         )
+<<<<<<< HEAD
 
+=======
+        
+        # 智能拼装
+>>>>>>> 7c364440839fbf7247a023cc3176912eb3e7fa75
         if facts: 
             if st.button("✨ 智能拼装案情描述", use_container_width=True, type="secondary"):
                 fact_text = "、".join(facts)
                 draft_prompt = f"律师您好，我遇到了【{main_category}】方面的问题。具体情况是：{fact_text}。我目前的证据情况是：{evidence}。请问我该怎么办？"
                 update_input(draft_prompt)
-    
+        
+        # 快速分类按钮（这里原代码可能有点逻辑冲突，因为上面已经是单选，但我保留你的设计）
+        st.markdown("**💡 快捷分类按钮：**")
+        left_col, right_col = st.columns(2)
+        with left_col:
+            st.button("💰 赡养纠纷", key="btn_sdyj")
+            st.button("💳 消费维权", key="btn_xfwq")
+        with right_col:
+            st.button("🏠 遗产继承", key="btn_yjcc")
+            st.button("💵 民间借贷", key="btn_mjwd")
+            
     user_prompt = st.text_area("文字描述案情：", height=150, placeholder="例如：我 65 岁了，有三个子女，他们都不愿意支付赡养费...", key="case_input")
     
     uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
@@ -167,6 +193,7 @@ with col2:
             st.error("⚠️ 请输入案情或上传图片")
         else:
             try:
+                # 强化 Prompt
                 system_content = """你是一位拥有20年经验、极其耐心且亲切的资深老龄权益律师。
 请用最通俗易懂的拉家常语言解答，绝对禁止堆砌长句。
 如果必须提到法律专业术语，请立刻在括号里用大白话解释一遍。
@@ -231,7 +258,11 @@ with col2:
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
                 
+<<<<<<< HEAD
                 # 核心流式输出，已经彻底清洗，没有任何尖括号
+=======
+                # 修复了乱码的干净代码
+>>>>>>> 7c364440839fbf7247a023cc3176912eb3e7fa75
                 for chunk in response:
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
                         if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
@@ -309,13 +340,23 @@ db_col1, db_col2 = st.columns(2)
 with db_col1:
     st.markdown("**🆔 国家法律法规数据库**")
     st.caption("搜索全年法律、行政法规、部门规章")
+<<<<<<< HEAD
     st.markdown("👉 [🔍 在国家法律法规数据库检索](https://flk.npc.gov.cn/)") 
+=======
+    search_query = urllib.parse.quote("赡养纠纷 民法典")
+    st.markdown(f"👉 [🔍 在国家法律法规数据库检索](https://flk.npc.gov.cn/)") 
+>>>>>>> 7c364440839fbf7247a023cc3176912eb3e7fa75
     st.metric("权威性", "官方发布")
 
 with db_col2:
     st.markdown("**🆔 中国裁判文书网**")
     st.caption("查询真实法院判例")
+<<<<<<< HEAD
     st.markdown("👉 [🔍 在裁判文书网检索判例](https://wenshu.court.gov.cn/)") 
+=======
+    case_query = urllib.parse.quote("赡养纠纷 判决书")
+    st.markdown(f"👉 [🔍 在裁判文书网检索判例](https://wenshu.court.gov.cn/)") 
+>>>>>>> 7c364440839fbf7247a023cc3176912eb3e7fa75
     st.metric("真实性", "生效文书")
 
 # 法条速查表
