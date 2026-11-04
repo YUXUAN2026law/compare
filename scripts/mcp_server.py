@@ -18,9 +18,16 @@ Tools:
   article_search   — search a keyword across articles of multiple laws
 """
 
+import asyncio
+import sys
+
+# 👇 关键修复：解决 Windows 下 asyncio 报错（必须在其他 import 之前）
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+# 👆
+
 import contextlib
 import io
-import sys
 from pathlib import Path
 
 # Ensure `scripts/` is importable so `from common import ...` resolves.
