@@ -10,6 +10,19 @@ from fpdf import FPDF
 from dotenv import load_dotenv
 from gtts import gTTS
 import requests
+import sys
+from pathlib import Path
+
+# === 新增：导入你的爬虫模块，实现网页端直连 ===
+try:
+    _SCRIPTS_DIR = Path(__file__).resolve().parent / "scripts"
+    if str(_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(_SCRIPTS_DIR))
+    import download 
+    HAS_CRAWLER = True
+except Exception as e:
+    HAS_CRAWLER = False
+# ==========================================
 
 load_dotenv()
 
@@ -32,6 +45,11 @@ st.markdown("**专为中老年人打造的法律助手**，支持图片案情识
 with st.sidebar:
     st.header("系统设置")
     model_option = st.selectbox("选择生成模型", ["deepseek-v4.1-flash-1017", "intern-s2", "Atria-Dawn"], index=0)
+    
+    # === 新增：网页端法条直连开关 ===
+    use_real_law = st.checkbox("🌟 开启【官方数据库法条直连】", value=HAS_CRAWLER, help="开启后，系统会在生成前先去人大网检索真实法规")
+    # ================================
+
     st.markdown("---")
     st.markdown("**使用指南：**\n1. 输入文字或上传案情截图\n2. 等待AI出具法律意见\n3. 一键下载Word/PDF")
     st.markdown("---")
@@ -137,6 +155,24 @@ with col2:
             st.error("⚠️ 请输入案情或上传图片")
         else:
             try:
+                # === 新增：后台偷偷调用爬虫，获取真实法条 ===
+                crawled_context = ""
+                if use_real_law and HAS_CRAWLER and user_prompt.strip():
+                    with st.spinner("正在直连国家法律法规数据库检索相关法条..."):
+                        try:
+                            # 简单提取前几个字作为搜索关键词（比如“赡养纠纷”）
+                            search_keyword = user_prompt[:8]
+                            search_res = download.search_laws(search_keyword, size=3)
+                            if search_res and search_res.get("code") == 200:
+                                rows = search_res.get("rows", [])
+                                crawled_context = "\n【以下是从官方数据库实时抓取的相关法律法规名称】\n"
+                                for row in rows[:3]:
+                                    crawled_context += f"- {row.get('title')}\n"
+                                crawled_context += "请务必结合以上真实存在的法规名称进行解答。\n"
+                        except Exception as e:
+                            print(f"爬虫检索超时: {e}")
+                # ==========================================
+
                 system_content = """你是一位拥有20年经验、极其耐心且亲切的资深老龄权益律师。
 请用最通俗易懂的拉家常语言解答，绝对禁止堆砌长句。
 如果必须提到法律专业术语，请立刻在括号里用大白话解释一遍。
@@ -170,6 +206,11 @@ with col2:
 6. 地域差异：建议用户以当地法院、法援中心口径为准。
 7. 多轮冗余：当用户反复陈述同一内容时，应复述确认后进入下一问题。
 8. 绝对禁令：严禁编造案号、法院名称、裁判日期。若无法提供真实案号，请直接说明“暂无匹配到公开真实案号”，并仅描述裁判规则，不得虚构。"""
+                
+                # === 新增：把抓取到的法条塞进大模型的脑子里 ===
+                if crawled_context:
+                    system_content += crawled_context
+                # =========================================
                 
                 if enable_compare:
                     system_content += "\n请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。若无法提供真实案号，请直接说明“暂无匹配到公开真实案号”，不得虚构。"
