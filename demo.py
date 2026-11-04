@@ -4,6 +4,7 @@ import re
 import os
 import base64
 import io
+import urllib.parse
 from docx import Document
 from fpdf import FPDF
 from dotenv import load_dotenv
@@ -70,6 +71,7 @@ with st.sidebar:
     show_qa_guide = st.checkbox("显示Q&A话术总结", value=True)
     show_community_guide = st.checkbox("显示社区协助指南", value=True)
 
+# 侧边栏Q&A话术总结
 with st.sidebar:
     if show_qa_guide:
         with st.expander("💬 Q&A 话术总结（帮您更好说明案情）"):
@@ -104,45 +106,40 @@ with col1:
     *（如果长辈习惯说方言，可在手机输入法设置中开启"方言识别"，如粤语、四川话等，AI 一样能听懂哦！）*
     """)
     
-    # 初始化 session_state
     if "case_input" not in st.session_state:
         st.session_state.case_input = ""
 
     def update_input(text):
         st.session_state.case_input = text
 
-    # 案件类型引导模板（升级版：三步漏斗式引导）
+    # 案件类型引导模板
     if show_template_guide:
-        st.markdown("**📋 不知道怎么描述？请按提示点选（我们会自动为您生成案情）：**")
+        st.markdown("**📋 不知道怎么描述？请按提示点选：**")
         
-        # 第一步：定性（大类）
         main_category = st.radio(
-            "1. 您遇到了哪方面的纠纷？（单选）",
+            "1. 您遇到了哪方面的纠纷？",
             ["婚姻家庭", "赡养纠纷", "消费维权", "民间借贷", "遗产继承"],
             horizontal=True
         )
         
-        # 第二步：诉求与事实（小类多选）
         facts = []
         if main_category == "婚姻家庭":
-            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["遭遇家暴", "对方出轨", "争夺孩子抚养权", "想离婚对方不同意", "隐匿转移财产"])
+            facts = st.multiselect("2. 具体情况（可多选）", ["遭遇家暴", "对方出轨", "争夺孩子抚养权", "想离婚对方不同意", "隐匿转移财产"])
         elif main_category == "赡养纠纷":
-            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["子女不给生活费/医药费", "子女逢年过节不看望", "生病住院没人管", "多个子女互相推诿"])
+            facts = st.multiselect("2. 具体情况（可多选）", ["子女不给生活费/医药费", "子女逢年过节不看望", "生病住院没人管", "多个子女互相推诿"])
         elif main_category == "消费维权":
-            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["被忽悠买了高价保健品", "买到假货/过期食品", "办了预付卡老板跑路", "被虚假广告欺骗"])
+            facts = st.multiselect("2. 具体情况（可多选）", ["被忽悠买了高价保健品", "买到假货/过期食品", "办了预付卡老板跑路", "被虚假广告欺骗"])
         elif main_category == "民间借贷":
-            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["借了钱到期不还", "找不到借钱的人了", "对方耍赖不认账", "利息高得离谱"])
+            facts = st.multiselect("2. 具体情况（可多选）", ["借了钱到期不还", "找不到借钱的人了", "对方耍赖不认账", "利息高得离谱"])
         elif main_category == "遗产继承":
-            facts = st.multiselect("2. 具体发生了什么？（可多选）", ["老人没留遗嘱", "对遗嘱真假有争议", "其他亲属霸占房产", "存款分配不公"])
+            facts = st.multiselect("2. 具体情况（可多选）", ["老人没留遗嘱", "对遗嘱真假有争议", "其他亲属霸占房产", "存款分配不公"])
 
-        # 第三步：证据情况
         evidence = st.radio(
-            "3. 您手里有什么证据？（单选）",
+            "3. 证据情况",
             ["有书面合同/借条/遗嘱", "只有微信聊天记录/录音", "有转账记录", "什么证据都没有"],
             horizontal=True
         )
 
-        # 第四步：一键生成草稿
         if facts: 
             if st.button("✨ 智能拼装案情描述", use_container_width=True, type="secondary"):
                 fact_text = "、".join(facts)
@@ -172,8 +169,20 @@ with col2:
             try:
                 system_content = """你是一位拥有20年经验、极其耐心且亲切的资深老龄权益律师。
 请用最通俗易懂的拉家常语言解答，绝对禁止堆砌长句。
-如果必须提到法律专业术语（如管辖权、诉讼时效），请立刻在括号里用大白话解释一遍。
-请严格按【案情定性】【法律分析】【维权路径】【行动建议】四部分输出。
+如果必须提到法律专业术语，请立刻在括号里用大白话解释一遍。
+
+请严格按以下结构输出：
+【案情定性】
+【法律分析】（必须明确列出对应的《民法典》或相关法律的具体法条序号及内容，例如：《民法典》第XXX条）
+【维权路径】
+【行动建议】
+
+【核心任务：法条深度解读】
+当您需要引用具体法条时，请：
+1. 写出该法条的具体内容
+2. 用大白话解释该法条的含义
+3. 说明该法条适用于当前案情的原因
+4. 列出其他可能适用的相关法条
 
 【絮叨应对预案】
 1. 始终保持耐心、尊重，不打断、不催促
@@ -183,16 +192,17 @@ with col2:
 5. 不评判、不争论，避免使用命令式语气
 
 【内置限制池】
-1. 法律免责声明：必须明确告知用户，AI输出仅供参考，不构成律师法律意见，重大案件请咨询执业律师或法律援助机构
-2. 隐私保护：不主动索要、不保存用户身份证号、住址、银行卡等敏感个人信息
-3. 紧急情况：发现用户人身安全受威胁、家暴、自杀等紧急情况时，优先建议拨打110、120或联系社区/家人
-4. 禁止承诺：不得承诺具体胜诉率、赔偿金额、案件结果，仅可提供流程指引和风险提示
-5. 证据边界：可提示常见证据类型，但不代替用户判断证据效力，不指导伪造、变造证据
-6. 地域差异：法律适用存在地域差异，建议用户以当地律师、法院、法援中心口径为准
-7. 多轮冗余：当用户反复陈述同一内容时，应复述确认后进入下一问题，避免无效循环"""
+1. 法律免责声明：必须明确告知用户，AI输出仅供参考，不构成律师法律意见。
+2. 隐私保护：不主动索要、不保存用户敏感个人信息。
+3. 紧急情况：发现紧急情况，优先建议拨打110、120。
+4. 禁止承诺：不得承诺具体胜诉率、赔偿金额。
+5. 证据边界：可提示常见证据类型，但不代替用户判断。
+6. 地域差异：建议用户以当地法院、法援中心口径为准。
+7. 多轮冗余：当用户反复陈述同一内容时，应复述确认后进入下一问题。"""
                 
                 if enable_compare:
-                    system_content += "\n此外，请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。"
+                    system_content += "\n请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则（需提供真实的案号，如(2023)最高法民申xxx号）。"
+                
                 messages = [{"role": "system", "content": system_content}]
                 
                 if uploaded_file is not None and enable_ocr:
@@ -213,20 +223,20 @@ with col2:
                 response = client.chat.completions.create(
                     model=model_option, 
                     messages=messages, 
-                    temperature=0.5,
+                    temperature=0.3, 
                     stream=True
                 )
+                
                 result_placeholder = st.empty()
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
                 
-                # ================= 核心流式输出 (干净版) =================
+                # 核心流式输出，已经彻底清洗，没有任何尖括号
                 for chunk in response:
                     if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
                         if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
                             full_result += chunk.choices[0].delta.content
                             result_placeholder.markdown(full_result + "▌")
-                # ============================================================
                 
                 result_placeholder.markdown(full_result)
                 st.success("✅ 分析完成！")
@@ -237,9 +247,12 @@ with col2:
                 st.markdown("### 🔊 语音朗读法律意见书")
                 audio_buffer = io.BytesIO()
                 try:
-                    tts = gTTS(text=result, lang='zh-cn')
-                    tts.write_to_fp(audio_buffer)
-                    audio_buffer.seek(0)
+                    if result:
+                        tts = gTTS(text=result, lang='zh-cn')
+                        tts.write_to_fp(audio_buffer) 
+                        audio_buffer.seek(0)  
+                    else:
+                        audio_buffer = None
                 except Exception as e:
                     st.warning(f"⚠️ 语音朗读暂时不可用：{str(e)}")
                     audio_buffer = None
@@ -283,6 +296,38 @@ with col2:
             except Exception as e:
                 st.error(f"❌ 发生错误：{str(e)}")
                 st.exception(e)
+
+# ============================================
+# 法条检索与验证
+# ============================================
+st.markdown("---")
+st.subheader("📖 法条检索与验证")
+st.warning("⚠️ **重要说明**：以下提供官方数据库的直接查找入口，请务必核对 AI 提供的法条是否准确。")
+
+db_col1, db_col2 = st.columns(2)
+
+with db_col1:
+    st.markdown("**🆔 国家法律法规数据库**")
+    st.caption("搜索全年法律、行政法规、部门规章")
+    st.markdown("👉 [🔍 在国家法律法规数据库检索](https://flk.npc.gov.cn/)") 
+    st.metric("权威性", "官方发布")
+
+with db_col2:
+    st.markdown("**🆔 中国裁判文书网**")
+    st.caption("查询真实法院判例")
+    st.markdown("👉 [🔍 在裁判文书网检索判例](https://wenshu.court.gov.cn/)") 
+    st.metric("真实性", "生效文书")
+
+# 法条速查表
+with st.expander("📋 常用老年人保护法条速查"):
+    st.markdown("""
+    如果您的案情涉及老年人权益，可参考以下核心法条，**在上面的数据库中输入具体条款号可查询原文**：
+    * **《民法典》第1067条**：子女不履行赡养义务时，无劳动能力的或生活困难的父母，有要求子女付给赡养费的权利。
+    * **《民法典》第1079条**：夫妻一方要求离婚的，可以由有关组织进行调解或者直接向人民法院提起离婚诉讼。
+    * **《民法典》第1127条**：遗产按照下列顺序继承：第一顺序：配偶、子女、父母。第二顺序：兄弟姐妹、祖父母、外祖父母。
+    * **《老年人权益保障法》第19条**：赡养人应当履行对老年人经济上供养、生活上照料和精神上慰藉的义务。
+    * **《老年人权益保障法》第22条**：老年人对个人的财产，依法享有占有、使用、收益和处分的权利。
+    """)
 
 # 社区居委会协助指南
 if show_community_guide:
