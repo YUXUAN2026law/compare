@@ -6,19 +6,25 @@ import base64
 import io
 import urllib.parse
 from docx import Document
-from fpdf import FPDF
 from dotenv import load_dotenv
 from gtts import gTTS
 import requests
 import sys
 from pathlib import Path
+import time
 
-# === 新增：导入你的爬虫模块，实现网页端直连 ===
+# === 新增：导入重试机制 ===
+from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_exception_type
+from openai import RateLimitError
+# ==========================
+
+# === 导入爬虫及解析模块 ===
 try:
     _SCRIPTS_DIR = Path(__file__).resolve().parent / "scripts"
     if str(_SCRIPTS_DIR) not in sys.path:
         sys.path.insert(0, str(_SCRIPTS_DIR))
-    import download 
+    import download
+    import common 
     HAS_CRAWLER = True
 except Exception as e:
     HAS_CRAWLER = False
@@ -45,13 +51,28 @@ st.markdown("**专为中老年人打造的法律助手**，支持图片案情识
 with st.sidebar:
     st.header("系统设置")
     model_option = st.selectbox("选择生成模型", ["deepseek-v4.1-flash-1017", "intern-s2", "Atria-Dawn"], index=0)
-    
-    # === 新增：网页端法条直连开关 ===
-    use_real_law = st.checkbox("🌟 开启【官方数据库法条直连】", value=HAS_CRAWLER, help="开启后，系统会在生成前先去人大网检索真实法规")
-    # ================================
-
     st.markdown("---")
     st.markdown("**使用指南：**\n1. 输入文字或上传案情截图\n2. 等待AI出具法律意见\n3. 一键下载Word/PDF")
+    
+    st.markdown("---")
+    with st.expander("🛠️ 开发者诊断：测试官方库连通性"):
+        st.write("点击下方按钮，验证系统是否能真实抓取国家法律法规数据库。")
+        if st.button("⚡ 测试抓取真实法条"):
+            if not HAS_CRAWLER:
+                st.error("❌ 本地脚本导入失败，请检查 scripts 文件夹是否上传。")
+            else:
+                with st.spinner("正在连接国家法律法规数据库..."):
+                    try:
+                        test_res = download.search_laws("民法典", size=1)
+                        if test_res and test_res.get("code") == 200 and test_res.get("rows"):
+                            test_law = test_res["rows"][0]
+                            st.success(f"✅ 检索成功：{test_law.get('title')}")
+                            st.json(test_law)
+                        else:
+                            st.warning("⚠️ 网络超时或官方接口限制（云端常见）。")
+                    except Exception as e:
+                        st.error(f"❌ 抓取失败：{str(e)}")
+
     st.markdown("---")
     with st.expander("📖 老年人常见法律名词解释"):
         st.markdown("""
@@ -103,7 +124,6 @@ with col1:
     st.info("""
     💡 **不会打字？普通话不标准？没关系！** 
     点击下方输入框，在手机键盘上找到 **🎤 麦克风图标**，按住直接说话。
-    *（如果长辈习惯说方言，可在手机输入法设置中开启"方言识别"，如粤语、四川话等，AI 一样能听懂哦！）*
     """)
     if "case_input" not in st.session_state:
         st.session_state.case_input = ""
@@ -130,14 +150,23 @@ with col1:
                 fact_text = "、".join(facts)
                 draft_prompt = f"律师您好，我遇到了【{main_category}】方面的问题。具体情况是：{fact_text}。我目前的证据情况是：{evidence}。请问我该怎么办？"
                 update_input(draft_prompt)
-        st.markdown("**💡 快捷分类按钮：**")
+
+        st.markdown("**💡 演示专用：一键填入快捷案例**")
         left_col, right_col = st.columns(2)
         with left_col:
-            st.button("💰 赡养纠纷", key="btn_sdyj")
-            st.button("💳 消费维权", key="btn_xfwq")
+            if st.button("💰 赡养纠纷案例", key="btn_sdyj", use_container_width=True):
+                st.session_state.case_input = "律师您好，我今年65岁了。我有三个子女，但是现在他们互相推诿，都不愿意支付赡养费，也不来看望我。我身体不好，每个月吃药要花很多钱。请问我该怎么办？"
+                st.rerun()
+            if st.button("💳 消费维权案例", key="btn_xfwq", use_container_width=True):
+                st.session_state.case_input = "律师您好，我前几天去听讲座，被销售人员忽悠，花了三万块钱买了高价保健品。后来我发现这个保健品根本没有他们说的神效，我想退款，但是老板跑路了。请问我该怎么维权？"
+                st.rerun()
         with right_col:
-            st.button("🏠 遗产继承", key="btn_yjcc")
-            st.button("💵 民间借贷", key="btn_mjwd")
+            if st.button("🏠 遗产继承案例", key="btn_yjcc", use_container_width=True):
+                st.session_state.case_input = "律师您好，我父亲上个月去世了，没有留下书面遗嘱。现在我的大哥把父亲留下的房产和存款都霸占了，说他是长子应该多拿，一分钱都不分给我。请问我该怎么办？"
+                st.rerun()
+            if st.button("💵 民间借贷案例", key="btn_mjwd", use_container_width=True):
+                st.session_state.case_input = "律师您好，去年我朋友找我借了5万块钱，当时写了借条，约定上个月还钱。但是现在到期了，他一直耍赖不认账，微信也不回，电话也不接。请问我该怎么把钱要回来？"
+                st.rerun()
 
     user_prompt = st.text_area("文字描述案情：", height=150, placeholder="例如：我 65 岁了，有三个子女，他们都不愿意支付赡养费...", key="case_input")
     uploaded_file = st.file_uploader("或者上传案情图片/截图 (可选)", type=["jpg", "jpeg", "png"])
@@ -155,23 +184,35 @@ with col2:
             st.error("⚠️ 请输入案情或上传图片")
         else:
             try:
-                # === 新增：后台偷偷调用爬虫，获取真实法条 ===
-                crawled_context = ""
-                if use_real_law and HAS_CRAWLER and user_prompt.strip():
-                    with st.spinner("正在直连国家法律法规数据库检索相关法条..."):
+                # === 抓取真实法条正文并注入 ===
+                crawled_laws_text = ""
+                if HAS_CRAWLER and user_prompt.strip():
+                    with st.status("🏛️ 正在直连国家数据库检索并解析真实法条...", expanded=True) as status:
                         try:
-                            # 简单提取前几个字作为搜索关键词（比如“赡养纠纷”）
                             search_keyword = user_prompt[:8]
-                            search_res = download.search_laws(search_keyword, size=3)
-                            if search_res and search_res.get("code") == 200:
-                                rows = search_res.get("rows", [])
-                                crawled_context = "\n【以下是从官方数据库实时抓取的相关法律法规名称】\n"
-                                for row in rows[:3]:
-                                    crawled_context += f"- {row.get('title')}\n"
-                                crawled_context += "请务必结合以上真实存在的法规名称进行解答。\n"
+                            st.write(f"🔍 正在检索关键词: `{search_keyword}`")
+                            search_res = download.search_laws(search_keyword, size=1)
+                            
+                            if search_res and search_res.get("code") == 200 and search_res.get("rows"):
+                                law_info = search_res["rows"][0]
+                                law_title = law_info.get("title")
+                                bbbs_id = law_info.get("bbbs")
+                                st.write(f"✅ 锁定法规：《{law_title}》")
+                                
+                                st.write("⏳ 正在下载并解析详细法条正文...")
+                                paragraphs, _ = download._download_docx_text(bbbs_id)
+                                articles = common.split_into_articles(paragraphs)
+                                
+                                crawled_laws_text = f"\n【以下是系统刚刚从官方数据库实时抓取并解析的《{law_title}》真实法条，请严格依据这些法条回答】\n"
+                                for i in range(min(5, len(articles))):
+                                    crawled_laws_text += f"{articles[i][0]} {articles[i][1]}\n"
+                                    
+                                status.update(label="✅ 官方真实法条解析完成！", state="complete", expanded=False)
+                            else:
+                                status.update(label="⚠️ 未检索到高度匹配的法规，将依靠大模型知识回答", state="error", expanded=False)
                         except Exception as e:
-                            print(f"爬虫检索超时: {e}")
-                # ==========================================
+                            status.update(label="⚠️ 云端网络受限，法条直连超时，已自动降级为大模型直接回答", state="error", expanded=False)
+                            print(f"爬虫异常: {e}")
 
                 system_content = """你是一位拥有20年经验、极其耐心且亲切的资深老龄权益律师。
 请用最通俗易懂的拉家常语言解答，绝对禁止堆砌长句。
@@ -183,37 +224,15 @@ with col2:
 【维权路径】
 【行动建议】
 
-【核心任务：法条深度解读】
-当您需要引用具体法条时，请：
-1. 写出该法条的具体内容
-2. 用大白话解释该法条的含义
-3. 说明该法条适用于当前案情的原因
-4. 列出其他可能适用的相关法条
-
-【絮叨应对预案】
-1. 始终保持耐心、尊重，不打断、不催促
-2. 用一句话复述确认，让老人感到被倾听
-3. 把长段话拆成小块，逐点确认
-4. 当话题偏离时，用温和问句拉回案情
-5. 不评判、不争论，避免使用命令式语气
-
 【内置限制池】
 1. 法律免责声明：必须明确告知用户，AI输出仅供参考，不构成律师法律意见。
-2. 隐私保护：不主动索要、不保存用户敏感个人信息。
-3. 紧急情况：发现紧急情况，优先建议拨打110、120。
-4. 禁止承诺：不得承诺具体胜诉率、赔偿金额。
-5. 证据边界：可提示常见证据类型，但不代替用户判断。
-6. 地域差异：建议用户以当地法院、法援中心口径为准。
-7. 多轮冗余：当用户反复陈述同一内容时，应复述确认后进入下一问题。
-8. 绝对禁令：严禁编造案号、法院名称、裁判日期。若无法提供真实案号，请直接说明“暂无匹配到公开真实案号”，并仅描述裁判规则，不得虚构。"""
+2. 严禁编造案号、法院名称、裁判日期。若无法提供真实案号，请直接说明“暂无匹配到公开真实案号”。"""
                 
-                # === 新增：把抓取到的法条塞进大模型的脑子里 ===
-                if crawled_context:
-                    system_content += crawled_context
-                # =========================================
+                if crawled_laws_text:
+                    system_content += crawled_laws_text
                 
                 if enable_compare:
-                    system_content += "\n请额外增加第五部分【类案对比】：总结1-2个最高人民法院或地方法院的真实相似判例，说明法院的裁判规则。若无法提供真实案号，请直接说明“暂无匹配到公开真实案号”，不得虚构。"
+                    system_content += "\n请额外增加第五部分【类案对比】：总结1-2个真实相似判例，说明法院的裁判规则。"
                 
                 messages = [{"role": "system", "content": system_content}]
                 if uploaded_file is not None and enable_ocr:
@@ -228,8 +247,31 @@ with col2:
                     messages.append({"role": "user", "content": content_list})
                 else:
                     messages.append({"role": "user", "content": user_prompt})
-                
-                response = client.chat.completions.create(model=model_option, messages=messages, temperature=0.3, stream=True)
+
+                # ==========================================
+                # 新增：带自动重试的流式请求 (防止 429 报错)
+                # ==========================================
+                @retry(
+                    retry=retry_if_exception_type(RateLimitError),
+                    wait=wait_random_exponential(min=2, max=10),
+                    stop=stop_after_attempt(5),
+                    reraise=True
+                )
+                def create_completion_with_retry():
+                    return client.chat.completions.create(
+                        model=model_option, 
+                        messages=messages, 
+                        temperature=0.3, 
+                        stream=True
+                    )
+
+                try:
+                    response = create_completion_with_retry()
+                except RateLimitError:
+                    st.error("⚠️ 当前多人同时使用导致接口请求过于频繁，请等待 10 秒后再点击生成。")
+                    st.stop()
+                # ==========================================
+
                 result_placeholder = st.empty()
                 full_result = ""
                 st.info("🔄 AI律师正在撰写意见，请稍候...")
@@ -242,7 +284,7 @@ with col2:
                 st.success("✅ 分析完成！")
                 result = full_result
                 
-                # 语音朗读（增加超时与异常处理）
+                # 语音朗读
                 st.markdown("### 🔊 语音朗读法律意见书")
                 audio_buffer = io.BytesIO()
                 try:
@@ -261,26 +303,22 @@ with col2:
                 
                 # 导出
                 st.markdown("### 📥 导出法律意见书")
-                export_col1, export_col2 = st.columns(2)
                 doc = Document()
                 doc.add_heading('银发法盾 - AI法律意见书', 0)
                 doc.add_paragraph(result)
                 bio = io.BytesIO()
                 doc.save(bio)
-                export_col1.download_button(label="下载 Word 版 (推荐)", data=bio.getvalue(), file_name="法律意见书.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
                 
-                # PDF导出（使用fpdf2加载中文字体）
-                try:
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.add_font("yahei", "", "msyh.ttc", uni=True) 
-                    pdf.set_font("yahei", size=12)
-                    pdf.multi_cell(0, 10, result)
-                    pdf_output = bytes(pdf.output(dest="S")) 
-                    export_col2.download_button(label="下载 PDF 版 (预览用)", data=pdf_output, file_name="法律意见书.pdf", mime="application/pdf", use_container_width=True)
-                    st.caption("💡 提示：PDF预览版仅供快速查阅，正式文书请优先下载 Word 版。")
-                except Exception as e:
-                    st.error(f"PDF生成失败：{e}")
+                col_btn, _ = st.columns([1, 1])
+                with col_btn:
+                    st.download_button(
+                        label="📄 下载 Word 版 (正式文书)", 
+                        data=bio.getvalue(), 
+                        file_name="法律意见书.docx", 
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+                        use_container_width=True
+                    )
+                st.info("💡 **提示**：由于系统字库限制，暂不提供 PDF 直接下载。建议您下载 Word 版，或在当前页面按 `Ctrl + P` 将网页保存为 PDF。")
                 
             except Exception as e:
                 st.error(f"❌ 发生错误：{str(e)}")
@@ -347,27 +385,6 @@ if show_community_guide:
         st.markdown("**📝 居委会通用申请文书模板**")
         st.markdown("点击下载下方按钮，获取标准格式的 Word 申请书模板。填写后提交给您所在小区的居委会。")
         st.download_button(label="下载 申请书模板 (.docx)", data=create_community_document(), file_name="居委会协助申请书.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+        # === 新增：手机端下载提示 ===
+        st.warning("📱 **手机端提示**：如果点击没反应，请点击微信/浏览器右上角的 `...`，选择“在浏览器中打开”后再下载。")
         st.caption("✅ 此文件可用 Word 2016 及以上版本打开")
-    
-    with citizen_col2:
-        st.markdown("**📞 社区走访建议**")
-        st.markdown("""
-        **去哪里找居委会**：
-        - 您所在的小区居委会办公室
-        - 街道办事处（乡镇政府下辖）
-        - 社区服务中心
-        
-        **带什么材料**：
-        1. 身份证复印件
-        2. 问题相关证据（照片、合同、聊天记录）
-        3. 写好的情况说明（可用上方模板）
-        
-        **调解后的好处**：
-        - 免费、高效的纠纷解决方式
-        - 不伤和气，保留邻里关系
-        - 若调解不成，仍可向法院起诉
-        
-        **注意事项**：
-        - 居委会调解基于双方自愿原则
-        - 调解协议具有法律约束力
-        """)
