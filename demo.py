@@ -13,12 +13,9 @@ import sys
 from pathlib import Path
 import time
 
-# === 新增：导入重试机制 ===
 from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_exception_type
 from openai import RateLimitError
-# ==========================
 
-# === 导入爬虫及解析模块 ===
 try:
     _SCRIPTS_DIR = Path(__file__).resolve().parent / "scripts"
     if str(_SCRIPTS_DIR) not in sys.path:
@@ -28,7 +25,6 @@ try:
     HAS_CRAWLER = True
 except Exception as e:
     HAS_CRAWLER = False
-# ==========================================
 
 load_dotenv()
 
@@ -46,6 +42,17 @@ client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
 st.set_page_config(page_title="银发法盾 - AI 法律助手", page_icon="⚖️", layout="wide")
 st.title("⚖️ 银发法盾")
 st.markdown("**专为中老年人打造的法律助手**，支持图片案情识别、类案对比与文书导出。")
+
+# ==========================================
+# 💡 新增：显著的严谨性声明（高级产品包装）
+# ==========================================
+st.error("""
+### 🛡️ 法律严谨性保障声明
+为了保障您的合法权益，拒绝 AI 胡编乱造，本系统接入了**国家法律法规数据库实时抓取引擎**。
+由于需要去官方政务网逐字核对并下载真实法条，**整个分析过程通常需要 5-10 分钟**。
+请您提交案情后，耐心等待。我们宁愿慢一点，也要确保交给您的每一句话都有真实的法律依据！
+""")
+# ==========================================
 
 # 侧边栏设置
 with st.sidebar:
@@ -184,7 +191,6 @@ with col2:
             st.error("⚠️ 请输入案情或上传图片")
         else:
             try:
-                # === 抓取真实法条正文并注入 ===
                 crawled_laws_text = ""
                 if HAS_CRAWLER and user_prompt.strip():
                     with st.status("🏛️ 正在直连国家数据库检索并解析真实法条...", expanded=True) as status:
@@ -199,7 +205,7 @@ with col2:
                                 bbbs_id = law_info.get("bbbs")
                                 st.write(f"✅ 锁定法规：《{law_title}》")
                                 
-                                st.write("⏳ 正在下载并解析详细法条正文...")
+                                st.write("⏳ 正在下载并解析详细法条正文（政务网速度较慢，请耐心等待）...")
                                 paragraphs, _ = download._download_docx_text(bbbs_id)
                                 articles = common.split_into_articles(paragraphs)
                                 
@@ -248,9 +254,6 @@ with col2:
                 else:
                     messages.append({"role": "user", "content": user_prompt})
 
-                # ==========================================
-                # 新增：带自动重试的流式请求 (防止 429 报错)
-                # ==========================================
                 @retry(
                     retry=retry_if_exception_type(RateLimitError),
                     wait=wait_random_exponential(min=2, max=10),
@@ -270,7 +273,6 @@ with col2:
                 except RateLimitError:
                     st.error("⚠️ 当前多人同时使用导致接口请求过于频繁，请等待 10 秒后再点击生成。")
                     st.stop()
-                # ==========================================
 
                 result_placeholder = st.empty()
                 full_result = ""
@@ -284,7 +286,6 @@ with col2:
                 st.success("✅ 分析完成！")
                 result = full_result
                 
-                # 语音朗读
                 st.markdown("### 🔊 语音朗读法律意见书")
                 audio_buffer = io.BytesIO()
                 try:
@@ -301,7 +302,6 @@ with col2:
                     st.audio(audio_buffer, format='audio/mpeg')
                     st.caption("💡 支持暂停/加速/下载，点击右上角三个点继续")
                 
-                # 导出
                 st.markdown("### 📥 导出法律意见书")
                 doc = Document()
                 doc.add_heading('银发法盾 - AI法律意见书', 0)
@@ -324,9 +324,6 @@ with col2:
                 st.error(f"❌ 发生错误：{str(e)}")
                 st.exception(e)
 
-# ============================================
-# 法条检索与验证
-# ============================================
 st.markdown("---")
 st.subheader("📖 法条检索与验证")
 st.warning("⚠️ **重要说明**：以下提供官方数据库的直接查找入口，请务必核对 AI 提供的法条是否准确。")
@@ -385,6 +382,5 @@ if show_community_guide:
         st.markdown("**📝 居委会通用申请文书模板**")
         st.markdown("点击下载下方按钮，获取标准格式的 Word 申请书模板。填写后提交给您所在小区的居委会。")
         st.download_button(label="下载 申请书模板 (.docx)", data=create_community_document(), file_name="居委会协助申请书.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
-        # === 新增：手机端下载提示 ===
         st.warning("📱 **手机端提示**：如果点击没反应，请点击微信/浏览器右上角的 `...`，选择“在浏览器中打开”后再下载。")
         st.caption("✅ 此文件可用 Word 2016 及以上版本打开")
